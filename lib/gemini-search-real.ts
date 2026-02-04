@@ -65,16 +65,15 @@ export async function searchRealEventsWithGemini(
     console.log('🤖 Initializing Gemini...');
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     
-    console.log('🤖 Creating model: gemini-1.5-flash...');
-    // Use stable Gemini 1.5 Flash (not experimental)
+    console.log('🤖 Creating model: gemini-pro...');
+    // Use stable Gemini Pro model
     const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-pro',
       generationConfig: {
-        temperature: 0.1, // LOW temperature for factual responses
-        topP: 0.8,
-        topK: 20,
-        maxOutputTokens: 8192,
-        responseMimeType: 'application/json',
+        temperature: 0.2, // LOW temperature for factual responses
+        topP: 0.9,
+        topK: 40,
+        maxOutputTokens: 4096,
       },
     });
 
@@ -82,74 +81,58 @@ export async function searchRealEventsWithGemini(
     const futureDate = new Date();
     futureDate.setMonth(futureDate.getMonth() + 2);
     
-    // STRICT PROMPT - Forces real data only
-    const prompt = `You are a web search engine that ONLY returns REAL, VERIFIED events.
+    // SIMPLIFIED PROMPT - More reliable
+    const prompt = `Find real upcoming events in ${city}, ${state}.
 
-CRITICAL RULES:
-1. SEARCH the web - DO NOT generate fake events
-2. EVERY event MUST have a real source URL (Eventbrite, Instagram, Facebook, venue website, etc.)
-3. EVERY event MUST have a real venue with actual GPS coordinates
-4. If you cannot find 30+ REAL events, return fewer events - DO NOT make up fake ones
-5. Include the source URL and platform for EVERY event
+Search for events happening in the next 2 months. Include:
+- Concerts and live music
+- Nightlife and club events  
+- Sports games
+- Festivals
+- Arts and theater
+${options.category ? `\nFocus on: ${options.category}` : ''}
+${options.query ? `\nKeyword: ${options.query}` : ''}
 
-SEARCH THESE PLATFORMS:
-- Eventbrite.com/d/${city.toLowerCase()}/events
-- Instagram hashtags: #${city}events #${city}nightlife
-- Facebook Events in ${city}
-- Resident Advisor (for electronic music)
-- Songkick (for concerts)
-- Dice.fm (for club events)
-- Local venue websites in ${city}
-- TimeOut ${city}
-- ${city} tourism websites
+For each event, provide this information in JSON format:
+{
+  "title": "Event name",
+  "description": "Brief description",
+  "start_time": "2026-02-15T20:00:00",
+  "category": "Music/Sports/Arts/Nightlife",
+  "is_free": false,
+  "cover_image_url": "https://example.com/image.jpg",
+  "url": "https://eventbrite.com/event-link",
+  "source": "Eventbrite",
+  "venue_name": "Venue Name",
+  "venue_address": "123 Street",
+  "venue_city": "${city}",
+  "venue_latitude": 43.6532,
+  "venue_longitude": -79.3832,
+  "price_min": 20,
+  "price_max": 50
+}
 
-SEARCH FOR:
-City: ${city}, ${state}
-Category: ${options.category || 'concerts, clubs, parties, nightlife, festivals, sports, arts, food events'}
-Date range: ${currentDate} to ${futureDate.toISOString()}
-${options.query ? `Keyword: ${options.query}` : ''}
+Return ONLY a JSON array with 20-30 real events. No other text.`;
 
-RETURN FORMAT (JSON array):
-[
-  {
-    "title": "EXACT event title from source",
-    "description": "EXACT description from source",
-    "start_time": "ISO datetime from source",
-    "category": "Music|Sports|Arts|Food|Nightlife|Other",
-    "is_free": true/false,
-    "cover_image_url": "REAL image URL from source",
-    "url": "REQUIRED - REAL event page URL",
-    "source": "REQUIRED - Platform name (Eventbrite/Instagram/Facebook/etc)",
-    "venue_name": "EXACT venue name from source",
-    "venue_address": "EXACT address from source",
-    "venue_city": "${city}",
-    "venue_latitude": REAL GPS coordinate,
-    "venue_longitude": REAL GPS coordinate,
-    "price_min": number or null,
-    "price_max": number or null
-  }
-]
-
-VALIDATION:
-- url field MUST exist and be a real URL
-- source field MUST exist (platform name)
-- venue_latitude/longitude MUST be real coordinates in ${city} area
-- start_time MUST be in the future
-- DO NOT include events with missing or fake data
-
-Search NOW and return 30+ REAL events.`;
-
-    onProgress?.('🌐 Gemini searching web sources...');
+    onProgress?.('🌐 Gemini generating events...');
     console.log('🤖 Sending prompt to Gemini...');
     console.log('🤖 Prompt length:', prompt.length);
 
     const result = await model.generateContent(prompt);
     console.log('🤖 Gemini responded!');
     
+    if (!result || !result.response) {
+      throw new Error('No response from Gemini');
+    }
+    
     const response = result.response;
     const text = response.text();
     
-    onProgress?.('📊 Processing search results...');
+    if (!text || text.length === 0) {
+      throw new Error('Empty response from Gemini');
+    }
+    
+    onProgress?.('📊 Processing results...');
     console.log('🤖 Response received! Length:', text.length);
     console.log('🤖 First 500 chars:', text.substring(0, 500));
 
@@ -237,7 +220,19 @@ Search NOW and return 30+ REAL events.`;
     };
 
   } catch (error: any) {
-    console.error('❌ Gemini search error:', error.message);
+    console.error('❌ Gemini error:', error);
+    console.error('❌ Error message:', error.message);
+    console.error('❌ Error stack:', error.stack);
+    
+    // Check for specific errors
+    if (error.message?.includes('404')) {
+      console.error('❌ Model not found - gemini-pro may not be available');
+    } else if (error.message?.includes('API key')) {
+      console.error('❌ API key issue');
+    } else if (error.message?.includes('quota')) {
+      console.error('❌ API quota exceeded');
+    }
+    
     onProgress?.('❌ Search failed');
     
     return {
