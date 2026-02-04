@@ -43,8 +43,17 @@ export interface UnifiedEvent {
   };
   priceMin?: number;
   priceMax?: number;
-  source: 'eventbrite' | 'ticketmaster' | 'mock';
+  source: 'eventbrite' | 'ticketmaster' | 'mock' | 'gemini' | 'toronto-local';
+  
+  // Premium night-out features
+  vibeTag?: 'chill' | 'hype' | 'classy' | 'casual' | 'party' | 'underground' | 'rooftop' | 'live_music';
+  dressCode?: 'casual' | 'smart_casual' | 'dress_to_impress' | 'formal' | 'no_code';
+  ageRestriction?: string; // e.g., "19+", "21+", "All ages"
+  estimatedAttendees?: number;
 }
+
+// Export alias for compatibility
+export type Event = UnifiedEvent;
 
 // ============================================================================
 // EVENTBRITE API

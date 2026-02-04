@@ -5,6 +5,7 @@
  */
 
 import { Event } from './events-api';
+import { VibeId, DressCodeId } from './theme';
 
 interface TorontoVenue {
   name: string;
@@ -13,6 +14,25 @@ interface TorontoVenue {
   longitude: number;
   type: 'arena' | 'club' | 'theater' | 'bar' | 'outdoor' | 'gallery' | 'stadium';
 }
+
+// Map venue types to dress codes and vibes
+const VENUE_VIBES: { [key: string]: VibeId[] } = {
+  club: ['hype', 'party', 'underground'],
+  bar: ['chill', 'casual', 'classy'],
+  arena: ['hype', 'party'],
+  theater: ['classy', 'live_music'],
+  outdoor: ['casual', 'rooftop'],
+  gallery: ['classy', 'chill'],
+};
+
+const VENUE_DRESS_CODES: { [key: string]: DressCodeId[] } = {
+  club: ['smart_casual', 'dress_to_impress'],
+  bar: ['casual', 'smart_casual', 'no_code'],
+  arena: ['casual', 'no_code'],
+  theater: ['smart_casual', 'dress_to_impress'],
+  outdoor: ['casual', 'no_code'],
+  gallery: ['smart_casual', 'classy'],
+};
 
 const TORONTO_VENUES: TorontoVenue[] = [
   // Arenas & Stadiums
@@ -313,6 +333,30 @@ export function generateTorontoEvents(count: number = 50): Event[] {
       }
     }
     
+    // Get vibe and dress code based on venue type
+    const vibeOptions = VENUE_VIBES[venue.type] || ['casual'];
+    const dressCodeOptions = VENUE_DRESS_CODES[venue.type] || ['casual'];
+    
+    // Determine age restriction based on venue type
+    let ageRestriction = 'All ages';
+    if (venue.type === 'club') {
+      ageRestriction = '19+'; // Toronto legal drinking age
+    } else if (venue.type === 'bar' && Math.random() > 0.3) {
+      ageRestriction = '19+';
+    }
+    
+    // Estimate attendees based on venue type
+    let estimatedAttendees = 50;
+    if (venue.type === 'arena' || venue.type === 'stadium') {
+      estimatedAttendees = 500 + Math.floor(Math.random() * 1500);
+    } else if (venue.type === 'club') {
+      estimatedAttendees = 100 + Math.floor(Math.random() * 400);
+    } else if (venue.type === 'theater') {
+      estimatedAttendees = 50 + Math.floor(Math.random() * 200);
+    } else {
+      estimatedAttendees = 30 + Math.floor(Math.random() * 150);
+    }
+    
     events.push({
       id: `toronto-${i}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       title: template.title,
@@ -332,6 +376,12 @@ export function generateTorontoEvents(count: number = 50): Event[] {
       priceMin: isFree ? undefined : priceMin,
       priceMax: isFree ? undefined : priceMax,
       source: 'toronto-local',
+      
+      // Premium features
+      vibeTag: getRandomElement(vibeOptions),
+      dressCode: getRandomElement(dressCodeOptions),
+      ageRestriction,
+      estimatedAttendees,
     });
   }
   

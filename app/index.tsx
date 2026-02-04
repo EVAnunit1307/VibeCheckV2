@@ -26,9 +26,9 @@ export default function HomePage() {
     <View style={styles.container}>
       <StatusBar style="light" />
       
-      {/* Hero Gradient */}
+      {/* Premium Dark Gradient */}
       <LinearGradient
-        colors={['#6366f1', '#8b5cf6', '#ec4899']}
+        colors={['#0A0A0F', '#1A1A24', '#8B5CF6', '#EC4899']}
         style={StyleSheet.absoluteFill}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -47,40 +47,39 @@ export default function HomePage() {
           {/* Main Heading */}
           <View style={styles.heroContent}>
             <Text style={styles.heading}>
-              Discover Events.{'\n'}
-              Plan with Friends.{'\n'}
-              <Text style={styles.headingAccent}>Actually Show Up.</Text>
+              Your Night Out{'\n'}
+              <Text style={styles.headingAccent}>Starts Here</Text>
             </Text>
             
             <Text style={styles.subheading}>
-              Find the hottest events in Toronto, create plans with your crew, and track who actually shows up.
+              Find clubs, concerts & parties. Split costs. Track rides. Know who's really coming.
             </Text>
           </View>
 
           {/* Features Grid */}
           <View style={styles.featuresGrid}>
             <View style={styles.featureCard}>
-              <MaterialCommunityIcons name="map-marker-radius" size={24} color="#6366f1" />
-              <Text style={styles.featureTitle}>20K+ Events</Text>
-              <Text style={styles.featureText}>Concerts, clubs, festivals in Toronto</Text>
+              <MaterialCommunityIcons name="shimmer" size={24} color="#8B5CF6" />
+              <Text style={styles.featureTitle}>Live Events</Text>
+              <Text style={styles.featureText}>AI finds tonight's best clubs & parties</Text>
             </View>
             
             <View style={styles.featureCard}>
-              <MaterialCommunityIcons name="account-group" size={24} color="#8b5cf6" />
-              <Text style={styles.featureTitle}>Group Plans</Text>
-              <Text style={styles.featureText}>Vote together on what to do</Text>
+              <MaterialCommunityIcons name="cash-multiple" size={24} color="#10B981" />
+              <Text style={styles.featureTitle}>Split Bills</Text>
+              <Text style={styles.featureText}>Calculate covers, drinks & rides</Text>
             </View>
             
             <View style={styles.featureCard}>
-              <MaterialCommunityIcons name="chart-line" size={24} color="#ec4899" />
-              <Text style={styles.featureTitle}>Commitment Score</Text>
-              <Text style={styles.featureText}>Track who flakes, who shows</Text>
+              <MaterialCommunityIcons name="car" size={24} color="#06B6D4" />
+              <Text style={styles.featureTitle}>Ride Costs</Text>
+              <Text style={styles.featureText}>See Uber estimates before you go</Text>
             </View>
             
             <View style={styles.featureCard}>
-              <MaterialCommunityIcons name="chat" size={24} color="#f59e0b" />
-              <Text style={styles.featureTitle}>Real-Time Chat</Text>
-              <Text style={styles.featureText}>Coordinate with your group</Text>
+              <MaterialCommunityIcons name="shield-check" size={24} color="#EC4899" />
+              <Text style={styles.featureTitle}>Vibe Scores</Text>
+              <Text style={styles.featureText}>Know who actually shows up</Text>
             </View>
           </View>
 
@@ -91,8 +90,9 @@ export default function HomePage() {
               onPress={() => router.push('/(tabs)/feed')}
               activeOpacity={0.8}
             >
-              <Text style={styles.primaryButtonText}>Explore Events</Text>
-              <MaterialCommunityIcons name="arrow-right" size={20} color="#6366f1" />
+              <MaterialCommunityIcons name="party-popper" size={20} color="#fff" />
+              <Text style={styles.primaryButtonText}>Find Tonight's Events</Text>
+              <MaterialCommunityIcons name="arrow-right" size={20} color="#fff" />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -100,19 +100,15 @@ export default function HomePage() {
               onPress={() => router.push('/auth')}
               activeOpacity={0.8}
             >
-              <Text style={styles.secondaryButtonText}>Sign Up to Create Plans</Text>
+              <Text style={styles.secondaryButtonText}>Sign Up  •  Plan with Friends</Text>
             </TouchableOpacity>
           </View>
 
           {/* Social Proof */}
           <View style={styles.socialProof}>
-            <View style={styles.avatarStack}>
-              <View style={[styles.avatar, { backgroundColor: '#6366f1' }]} />
-              <View style={[styles.avatar, { backgroundColor: '#8b5cf6', marginLeft: -12 }]} />
-              <View style={[styles.avatar, { backgroundColor: '#ec4899', marginLeft: -12 }]} />
-            </View>
+            <MaterialCommunityIcons name="fire" size={16} color="#F59E0B" />
             <Text style={styles.socialProofText}>
-              <Text style={styles.socialProofBold}>1,000+</Text> people planning together
+              <Text style={styles.socialProofBold}>Popular in Toronto</Text> • Made for 18-30 year olds
             </Text>
           </View>
         </ScrollView>
@@ -156,14 +152,14 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   heading: {
-    fontSize: 36,
-    fontWeight: '800',
+    fontSize: 40,
+    fontWeight: '900',
     color: '#fff',
-    lineHeight: 44,
+    lineHeight: 48,
     marginBottom: 16,
   },
   headingAccent: {
-    color: '#fbbf24',
+    color: '#EC4899',
   },
   subheading: {
     fontSize: 16,
@@ -179,22 +175,24 @@ const styles = StyleSheet.create({
   },
   featureCard: {
     width: '48%',
-    backgroundColor: 'rgba(255,255,255,0.95)',
+    backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: 16,
     padding: 16,
     minHeight: 120,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   featureTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
+    color: '#fff',
     marginTop: 8,
     marginBottom: 4,
   },
   featureText: {
     fontSize: 13,
     fontWeight: '400',
-    color: '#6b7280',
+    color: 'rgba(255,255,255,0.7)',
     lineHeight: 18,
   },
   ctaContainer: {
@@ -205,21 +203,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
-    paddingVertical: 16,
+    backgroundColor: '#8B5CF6',
+    paddingVertical: 18,
     paddingHorizontal: 24,
-    borderRadius: 12,
+    borderRadius: 16,
     gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 8,
   },
   primaryButtonText: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
-    color: '#6366f1',
+    color: '#fff',
+    letterSpacing: 0.5,
   },
   secondaryButton: {
     alignItems: 'center',
@@ -247,10 +246,11 @@ const styles = StyleSheet.create({
     borderColor: '#fff',
   },
   socialProofText: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.9)',
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.7)',
   },
   socialProofBold: {
     fontWeight: '700',
+    color: 'rgba(255,255,255,0.9)',
   },
 });

@@ -16,9 +16,10 @@ import { generateTorontoEvents } from '../../lib/toronto-events';
 import { formatDistance } from '../../lib/helpers';
 import { EventListSkeleton } from '../../components/LoadingSkeleton';
 import { LoadingProgress } from '../../components/LoadingProgress';
-import { ModernEventCard } from '../../components/ModernEventCard';
+import { PremiumEventCard } from '../../components/PremiumEventCard';
 import { MAJOR_CITIES, City, getDefaultCity } from '../../lib/cities';
 import { searchEventsWithGemini } from '../../lib/gemini-events';
+import { estimateRideCost } from '../../lib/ride-estimates';
 
 const CATEGORIES = [
   { id: 'all', name: '🎭 All', icon: 'view-grid' },
@@ -266,11 +267,38 @@ export default function FeedScreen() {
         )
       : undefined;
 
+    // Calculate ride cost estimate
+    const rideCost = userLocation && item.venue.latitude && item.venue.longitude
+      ? estimateRideCost(
+          { latitude: userLocation.latitude, longitude: userLocation.longitude },
+          { latitude: item.venue.latitude, longitude: item.venue.longitude },
+          new Date(item.start_time)
+        ).average
+      : undefined;
+
+    // Format date and time
+    const eventDate = new Date(item.start_time);
+    const formattedDate = eventDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    const formattedTime = eventDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+    // Format price
+    const price = item.is_free ? 'Free' : item.priceMin ? item.priceMin : 'TBA';
+
     return (
-      <ModernEventCard
-        event={item}
-        onPress={() => router.push(`/event/${item.id}` as any)}
+      <PremiumEventCard
+        id={item.id}
+        title={item.title}
+        venue={item.venue.name}
+        imageUrl={item.cover_image_url}
+        date={formattedDate}
+        time={formattedTime}
+        price={price}
         distance={distance}
+        vibeTag={item.vibeTag}
+        dressCode={item.dressCode}
+        ageRestriction={item.ageRestriction}
+        attendees={item.estimatedAttendees}
+        rideCost={rideCost}
       />
     );
   };
