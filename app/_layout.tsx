@@ -44,11 +44,11 @@ function RootLayoutNav() {
 
     // Cleanup
     return () => {
-      if (notificationListener.current) {
-        Notifications.removeNotificationSubscription(notificationListener.current);
+      if (notificationListener.current && notificationListener.current.remove) {
+        notificationListener.current.remove();
       }
-      if (responseListener.current) {
-        Notifications.removeNotificationSubscription(responseListener.current);
+      if (responseListener.current && responseListener.current.remove) {
+        responseListener.current.remove();
       }
     };
   }, [user]);

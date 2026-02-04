@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, FlatList, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, FlatList, RefreshControl, TouchableOpacity, Image } from 'react-native';
 import { Text, FAB, Card, Avatar } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -12,6 +12,7 @@ import { GroupListSkeleton } from '../../components/LoadingSkeleton';
 type Group = {
   id: string;
   name: string;
+  avatar_url?: string | null;
   created_at: string;
   member_count: number;
   role: string;
@@ -43,6 +44,7 @@ export default function GroupsScreen() {
           group:groups (
             id,
             name,
+            avatar_url,
             created_at
           )
         `)
@@ -62,6 +64,7 @@ export default function GroupsScreen() {
           return {
             id: item.group.id,
             name: item.group.name,
+            avatar_url: item.group.avatar_url,
             created_at: item.group.created_at,
             member_count: count || 0,
             role: item.role,
@@ -91,18 +94,32 @@ export default function GroupsScreen() {
       .toUpperCase()
       .slice(0, 2);
 
+    const createdDate = new Date(item.created_at);
+    const formattedDate = createdDate.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric', 
+      year: 'numeric' 
+    });
+
     return (
       <TouchableOpacity onPress={() => router.push(`/group/${item.id}`)}>
         <Card style={styles.groupCard} mode="elevated">
           <Card.Content>
             <View style={styles.groupRow}>
-              <Avatar.Text
-                size={56}
-                label={initials}
-                style={styles.avatar}
-                labelStyle={styles.avatarLabel}
-                color="#fff"
-              />
+              {item.avatar_url ? (
+                <Image 
+                  source={{ uri: item.avatar_url }} 
+                  style={styles.groupImage}
+                />
+              ) : (
+                <Avatar.Text
+                  size={56}
+                  label={initials}
+                  style={styles.avatar}
+                  labelStyle={styles.avatarLabel}
+                  color="#fff"
+                />
+              )}
               <View style={styles.groupInfo}>
                 <View style={styles.groupHeader}>
                   <Text style={styles.groupName} numberOfLines={1}>
@@ -117,6 +134,10 @@ export default function GroupsScreen() {
                   <Text style={styles.memberCount}>
                     {item.member_count} {item.member_count === 1 ? 'member' : 'members'}
                   </Text>
+                </View>
+                <View style={styles.dateRow}>
+                  <MaterialCommunityIcons name="calendar" size={14} color="#9ca3af" />
+                  <Text style={styles.dateText}>Created {formattedDate}</Text>
                 </View>
               </View>
               <MaterialCommunityIcons name="chevron-right" size={24} color="#d1d5db" />
@@ -259,6 +280,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6b7280',
     marginLeft: 6,
+  },
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  dateText: {
+    fontSize: 12,
+    color: '#9ca3af',
+    marginLeft: 4,
+  },
+  groupImage: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    marginRight: 16,
   },
   fab: {
     position: 'absolute',

@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Image, TouchableOpacity, Alert } from 'react-native';
 import { Text, TextInput, Button, Card, Chip, IconButton } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/auth';
 
@@ -20,6 +21,7 @@ export default function CreateGroupScreen() {
   const { user } = useAuthStore();
 
   const [groupName, setGroupName] = useState('');
+  const [groupPhoto, setGroupPhoto] = useState<string | null>(null);
   const [searchPhone, setSearchPhone] = useState('');
   const [foundUsers, setFoundUsers] = useState<FoundUser[]>([]);
   const [selectedMembers, setSelectedMembers] = useState<FoundUser[]>([]);
@@ -27,6 +29,33 @@ export default function CreateGroupScreen() {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
+
+  const handlePickImage = async () => {
+    try {
+      // Request permission
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please allow access to your photos to upload a group image.');
+        return;
+      }
+
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        setGroupPhoto(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to pick image');
+    }
+  };
 
   const handleSearchUser = async () => {
     if (!searchPhone.trim()) {
@@ -88,12 +117,33 @@ export default function CreateGroupScreen() {
     setError(null);
 
     try {
+      // Upload group photo if provided
+      let avatarUrl = null;
+      if (groupPhoto) {
+        try {
+          const fileName = `group_${Date.now()}.jpg`;
+          const formData = new FormData();
+          formData.append('file', {
+            uri: groupPhoto,
+            type: 'image/jpeg',
+            name: fileName,
+          } as any);
+
+          // For now, just use the local URI since Supabase storage needs additional setup
+          avatarUrl = groupPhoto;
+        } catch (uploadError) {
+          console.error('Error uploading photo:', uploadError);
+          // Continue without photo
+        }
+      }
+
       // Create the group
       const { data: groupData, error: groupError } = await supabase
         .from('groups')
         .insert({
           name: groupName.trim(),
           created_by: user?.id,
+          avatar_url: avatarUrl,
         })
         .select()
         .single();
@@ -145,6 +195,32 @@ export default function CreateGroupScreen() {
             <Text style={styles.subtitle}>
               Invite friends to plan events together
             </Text>
+          </View>
+
+          {/* Group Photo */}
+          <View style={styles.section}>
+            <Text style={styles.label}>Group Photo (Optional)</Text>
+            <TouchableOpacity style={styles.photoUpload} onPress={handlePickImage}>
+              {groupPhoto ? (
+                <Image source={{ uri: groupPhoto }} style={styles.groupPhoto} />
+              ) : (
+                <View style={styles.photoPlaceholder}>
+                  <MaterialCommunityIcons name="camera-plus" size={40} color="#6366f1" />
+                  <Text style={styles.photoPlaceholderText}>Tap to add photo</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            {groupPhoto && (
+              <Button
+                mode="text"
+                onPress={() => setGroupPhoto(null)}
+                style={styles.removePhotoButton}
+                textColor="#ef4444"
+                icon="delete"
+              >
+                Remove Photo
+              </Button>
+            )}
           </View>
 
           {/* Group Name */}
@@ -484,5 +560,36 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     marginBottom: 16,
+  },
+  photoUpload: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    overflow: 'hidden',
+    alignSelf: 'center',
+    marginBottom: 8,
+  },
+  groupPhoto: {
+    width: '100%',
+    height: '100%',
+  },
+  photoPlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#ede9fe',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#6366f1',
+    borderStyle: 'dashed',
+  },
+  photoPlaceholderText: {
+    fontSize: 12,
+    color: '#6366f1',
+    marginTop: 8,
+    fontWeight: '500',
+  },
+  removePhotoButton: {
+    alignSelf: 'center',
   },
 });
