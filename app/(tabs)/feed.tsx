@@ -68,31 +68,32 @@ export default function FeedScreen() {
     })();
   }, []);
 
-  // Fetch events with proper loading states
+  // Fetch events LIVE with Gemini AI - computed in real-time!
   const fetchEvents = async () => {
     if (!userLocation) return;
 
     try {
       setLoading(true);
       setLoadingProgress(0);
-      setLoadingStatus('🔍 Searching for events...');
+      setLoadingStatus('🔍 Initializing search...');
 
       // Simulate realistic loading progress
       const progressInterval = setInterval(() => {
-        setLoadingProgress((prev) => Math.min(prev + 0.1, 0.9));
-      }, 200);
+        setLoadingProgress((prev) => Math.min(prev + 0.08, 0.85));
+      }, 300);
 
-      // 🤖 Try Gemini AI first for best results
+      // 🤖 ALWAYS use Gemini AI for LIVE event generation
       if (process.env.EXPO_PUBLIC_GEMINI_API_KEY) {
-        setLoadingStatus('🤖 Using AI to find events...');
+        console.log('🤖 LIVE: Generating events in real-time with Gemini...');
+        setLoadingStatus('🤖 Connecting to AI...');
         
         const categoryMap: { [key: string]: string } = {
           'all': 'concerts, parties, nightlife, festivals, social events, sports, arts, food & drink',
-          '103': 'concerts, music events, live music',
-          '110': 'food festivals, restaurant events, food & drink',
-          '105': 'theater, performing arts, comedy shows',
-          '108': 'sports games, fitness events, outdoor activities',
-          '116': 'travel events, tours, adventures',
+          '103': 'concerts, music events, live music, DJ nights, live bands',
+          '110': 'food festivals, restaurant events, food & drink, tastings, culinary experiences',
+          '105': 'theater, performing arts, comedy shows, art galleries, exhibitions',
+          '108': 'sports games, fitness events, outdoor activities, tournaments',
+          '116': 'travel events, tours, adventures, experiences',
         };
 
         const result = await searchEventsWithGemini(
@@ -102,34 +103,48 @@ export default function FeedScreen() {
             category: categoryMap[selectedCategory] || categoryMap['all'],
             demographic: '18-30 year olds',
             when: 'upcoming this month and next month',
+            query: searchQuery,
+            price: priceFilter === 'all' ? undefined : priceFilter,
           },
-          (status) => setLoadingStatus(status)
+          (status) => {
+            setLoadingStatus(status);
+            console.log('Progress:', status);
+          }
         );
 
         clearInterval(progressInterval);
 
         if (result.success && result.events && result.events.length > 0) {
-          setLoadingProgress(1);
-          setLoadingStatus('✅ Found ' + result.events.length + ' events!');
+          setLoadingProgress(0.95);
+          setLoadingStatus(`✅ Found ${result.events.length} live events!`);
+          
+          console.log(`🎉 LIVE: Generated ${result.events.length} fresh events!`);
           
           // Small delay to show success state
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, 800));
           
+          setLoadingProgress(1);
           setEvents(result.events as any);
           setFilteredEvents(result.events as any);
           setLoading(false);
           setRefreshing(false);
           return;
+        } else {
+          console.warn('⚠️ Gemini failed, falling back to Toronto events');
+          setLoadingStatus('⚠️ AI unavailable, using local data...');
         }
+      } else {
+        console.log('⚠️ No Gemini API key, using Toronto events');
+        setLoadingStatus('📍 Loading local events...');
       }
 
-      // Fallback to Toronto events or API
-      setLoadingStatus('📍 Loading local events...');
-      
+      // Fallback to Toronto events only if Gemini fails
       if (selectedCity.name === 'Toronto') {
         const torontoEvents = generateTorontoEvents(50);
         clearInterval(progressInterval);
         setLoadingProgress(1);
+        setLoadingStatus('✅ Found 50 Toronto events!');
+        await new Promise(resolve => setTimeout(resolve, 500));
         setEvents(torontoEvents);
         setFilteredEvents(torontoEvents);
         setLoading(false);
@@ -137,7 +152,7 @@ export default function FeedScreen() {
         return;
       }
 
-      // Other cities - use API
+      // Other cities - use traditional APIs
       setLoadingStatus('📡 Fetching from event APIs...');
       let result;
       if (selectedCategory === 'all') {
@@ -158,6 +173,8 @@ export default function FeedScreen() {
       setLoadingProgress(1);
 
       if (result.success && result.events) {
+        setLoadingStatus(`✅ Found ${result.events.length} events!`);
+        await new Promise(resolve => setTimeout(resolve, 500));
         setEvents(result.events);
         setFilteredEvents(result.events);
       } else {
@@ -166,7 +183,7 @@ export default function FeedScreen() {
         setFilteredEvents([]);
       }
     } catch (error: any) {
-      console.error('Error fetching events:', error);
+      console.error('❌ Error fetching events:', error);
       Alert.alert('Error', 'Failed to load events. Please try again.');
       setEvents([]);
       setFilteredEvents([]);
