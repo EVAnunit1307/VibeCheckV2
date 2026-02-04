@@ -1,11 +1,22 @@
 import { Tabs } from 'expo-router';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerShown: true,
-        tabBarActiveTintColor: '#007AFF',
+        headerShown: false,
+        tabBarActiveTintColor: '#6366f1',
+        tabBarInactiveTintColor: '#9ca3af',
+        tabBarStyle: {
+          paddingBottom: 4,
+          paddingTop: 4,
+          height: 60,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '600',
+        },
       }}
     >
       <Tabs.Screen
@@ -13,6 +24,9 @@ export default function TabLayout() {
         options={{
           title: 'Feed',
           tabBarLabel: 'Feed',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="calendar-multiple" size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
@@ -20,6 +34,9 @@ export default function TabLayout() {
         options={{
           title: 'Groups',
           tabBarLabel: 'Groups',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="account-group" size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
@@ -27,6 +44,9 @@ export default function TabLayout() {
         options={{
           title: 'Plans',
           tabBarLabel: 'Plans',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="check-circle" size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
@@ -34,6 +54,9 @@ export default function TabLayout() {
         options={{
           title: 'Profile',
           tabBarLabel: 'Profile',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="account-circle" size={size} color={color} />
+          ),
         }}
       />
     </Tabs>

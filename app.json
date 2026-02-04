@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "planlock",
-    "slug": "planlock",
+    "name": "VibeCheck",
+    "slug": "vibecheck",
     "version": "1.0.0",
-    "scheme": "planlock",
+    "scheme": "vibecheck",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
