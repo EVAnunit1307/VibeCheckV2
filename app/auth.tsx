@@ -1,11 +1,16 @@
 import { useState, useEffect } from 'react';
-import { View, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
-import { TextInput, Button, Text, ActivityIndicator } from 'react-native-paper';
+import { View, StyleSheet, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native';
+import { TextInput, Button, Text, ActivityIndicator, Divider } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/auth';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
+
+WebBrowser.maybeCompleteAuthSession();
 
 export default function AuthScreen() {
   const router = useRouter();
@@ -89,6 +94,55 @@ export default function AuthScreen() {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    try {
+      setLoading(true);
+      setError('');
+
+      const redirectUrl = Linking.createURL('/');
+      
+      const { data, error: signInError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUrl,
+          skipBrowserRedirect: Platform.OS !== 'web',
+        },
+      });
+
+      if (signInError) {
+        setError(signInError.message);
+        return;
+      }
+
+      if (Platform.OS !== 'web' && data?.url) {
+        const result = await WebBrowser.openAuthSessionAsync(
+          data.url,
+          redirectUrl
+        );
+
+        if (result.type === 'success') {
+          const url = result.url;
+          const params = new URL(url).searchParams;
+          const access_token = params.get('access_token');
+          const refresh_token = params.get('refresh_token');
+
+          if (access_token && refresh_token) {
+            await supabase.auth.setSession({
+              access_token,
+              refresh_token,
+            });
+            
+            router.replace('/(tabs)/feed');
+          }
+        }
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Failed to sign in with Google');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleBackToHome = () => {
     router.back();
   };
@@ -114,6 +168,27 @@ export default function AuthScreen() {
           </View>
 
           <View style={styles.form}>
+            {/* Google Sign In Button */}
+            <TouchableOpacity
+              style={styles.googleButton}
+              onPress={handleGoogleSignIn}
+              disabled={loading}
+              activeOpacity={0.8}
+            >
+              <View style={styles.googleButtonContent}>
+                <MaterialCommunityIcons name="google" size={24} color="#EA4335" />
+                <Text style={styles.googleButtonText}>Continue with Google</Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Divider */}
+            <View style={styles.dividerContainer}>
+              <Divider style={styles.divider} />
+              <Text style={styles.dividerText}>or</Text>
+              <Divider style={styles.divider} />
+            </View>
+
+            {/* Phone Auth */}
             <TextInput
               label="Phone Number"
               value={phoneNumber}
@@ -222,5 +297,46 @@ const styles = StyleSheet.create({
   },
   backButton: {
     marginTop: 16,
+  },
+  googleButton: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  googleButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  googleButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#e5e7eb',
+  },
+  dividerText: {
+    marginHorizontal: 16,
+    fontSize: 14,
+    color: '#9ca3af',
+    fontWeight: '500',
   },
 });

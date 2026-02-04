@@ -4,9 +4,11 @@ import { supabase } from '../lib/supabase';
 
 interface UserProfile {
   id: string;
-  phone_number: string;
+  phone_number: string | null;
   full_name: string;
   username: string;
+  email: string | null;
+  avatar_url: string | null;
   commitment_score: number;
   created_at?: string;
 }
@@ -58,6 +60,32 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
         if (profileError) {
           console.error('Error fetching profile:', profileError);
+          
+          // If profile doesn't exist, create one for OAuth users
+          if (profileError.code === 'PGRST116') {
+            const userData = session.user;
+            const newProfile = {
+              id: userData.id,
+              full_name: userData.user_metadata?.full_name || userData.user_metadata?.name || 'User',
+              username: userData.user_metadata?.email?.split('@')[0] || `user${Date.now()}`,
+              email: userData.email || null,
+              phone_number: userData.phone || null,
+              avatar_url: userData.user_metadata?.avatar_url || userData.user_metadata?.picture || null,
+              commitment_score: 100,
+            };
+
+            const { data: createdProfile, error: createError } = await supabase
+              .from('profiles')
+              .insert([newProfile])
+              .select()
+              .single();
+
+            if (createError) {
+              console.error('Error creating profile:', createError);
+            } else {
+              set({ user: createdProfile });
+            }
+          }
         } else {
           set({ user: profile });
         }

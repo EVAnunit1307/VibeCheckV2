@@ -272,6 +272,12 @@ export default function PlansScreen() {
           <Text style={styles.emptyText}>
             Please sign in to view your plans
           </Text>
+          <TouchableOpacity
+            style={styles.signInButton}
+            onPress={() => router.push('/auth')}
+          >
+            <Text style={styles.signInButtonText}>Sign In</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
@@ -437,5 +443,17 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     textAlign: 'center',
     lineHeight: 20,
+    marginBottom: 24,
+  },
+  signInButton: {
+    backgroundColor: '#6366f1',
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    borderRadius: 8,
+  },
+  signInButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
