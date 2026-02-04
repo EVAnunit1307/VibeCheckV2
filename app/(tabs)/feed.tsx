@@ -252,13 +252,13 @@ export default function FeedScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>🤖 Live AI Events</Text>
+          <Text style={styles.headerTitle}>🎫 Real Events</Text>
           <TouchableOpacity onPress={() => setShowCityPicker(true)} style={styles.locationButton}>
             <MaterialCommunityIcons name="map-marker" size={16} color="#6366f1" />
             <Text style={styles.locationText}>{selectedCity.name}, {selectedCity.province}</Text>
             <MaterialCommunityIcons name="chevron-down" size={16} color="#6366f1" />
           </TouchableOpacity>
-          <Text style={styles.headerSubtext}>Generated live with Gemini AI</Text>
+          <Text style={styles.headerSubtext}>From Ticketmaster, Eventbrite & more</Text>
         </View>
       </View>
 
