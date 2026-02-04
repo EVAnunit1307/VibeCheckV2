@@ -8,16 +8,16 @@ import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import { getEventsNearLocation, getEventsByCategory, Event } from '../../lib/events-api';
-import { generateTorontoEvents } from '../../lib/toronto-events';
+import { fetchRealEvents, RealEvent } from '../../lib/events-api-real';
 import { calculateDistance } from '../../lib/helpers';
 import { EventListSkeleton } from '../../components/LoadingSkeleton';
 import { LoadingProgress } from '../../components/LoadingProgress';
 import { PremiumEventCard } from '../../components/PremiumEventCard';
 import { MAJOR_CITIES, City, getDefaultCity } from '../../lib/cities';
-import { searchEventsWithGemini } from '../../lib/gemini-events';
 import { estimateRideCost } from '../../lib/ride-estimates';
 import { cacheEvents } from '../../lib/event-store';
+
+type Event = RealEvent;
 
 const CATEGORIES = [
   { id: 'all', name: '🎭 All', icon: 'view-grid' },
@@ -67,87 +67,39 @@ export default function FeedScreen() {
     })();
   }, []);
 
-  // Fetch events LIVE with Gemini AI - computed in real-time!
+  // Fetch ONLY REAL EVENTS from verified APIs
   const fetchEvents = async () => {
     if (!userLocation) return;
 
     try {
       setLoading(true);
-      setLoadingProgress(0);
-      setLoadingStatus('🔍 Initializing search...');
+      setLoadingProgress(0.1);
+      setLoadingStatus('🔍 Searching real event platforms...');
 
-      // Simulate realistic loading progress
-      const progressInterval = setInterval(() => {
-        setLoadingProgress((prev) => Math.min(prev + 0.08, 0.85));
-      }, 300);
+      console.log(`\n📍 Fetching REAL events for ${selectedCity.name}...`);
 
-      // 🤖 ALWAYS use Gemini AI for LIVE event generation
-      if (process.env.EXPO_PUBLIC_GEMINI_API_KEY) {
-        console.log('🤖 LIVE: Generating events in real-time with Gemini...');
-        setLoadingStatus('🤖 Connecting to AI...');
+      // FETCH ONLY REAL EVENTS - No AI hallucinations
+      const result = await fetchRealEvents(
+        userLocation.latitude,
+        userLocation.longitude,
+        25,
+        selectedCategory !== 'all' ? selectedCategory : undefined
+      );
+
+      setLoadingProgress(0.9);
+
+      if (result.success && result.events.length > 0) {
+        setLoadingStatus(`✅ Found ${result.events.length} real events from ${result.sources.join(', ')}`);
         
-        const categoryMap: { [key: string]: string } = {
-          'all': 'concerts, parties, nightlife, festivals, social events, sports, arts, food & drink',
-          '103': 'concerts, music events, live music, DJ nights, live bands',
-          '110': 'food festivals, restaurant events, food & drink, tastings, culinary experiences',
-          '105': 'theater, performing arts, comedy shows, art galleries, exhibitions',
-          '108': 'sports games, fitness events, outdoor activities, tournaments',
-          '116': 'travel events, tours, adventures, experiences',
-        };
-
-        const result = await searchEventsWithGemini(
-          selectedCity.name,
-          selectedCity.province,
-          {
-            category: categoryMap[selectedCategory] || categoryMap['all'],
-            demographic: '18-30 year olds',
-            when: 'upcoming this month and next month',
-            query: searchQuery,
-            price: priceFilter === 'all' ? undefined : priceFilter,
-          },
-          (status) => {
-            setLoadingStatus(status);
-            console.log('Progress:', status);
-          }
-        );
-
-        clearInterval(progressInterval);
-
-        if (result.success && result.events && result.events.length > 0) {
-          setLoadingProgress(0.95);
-          setLoadingStatus(`✅ Found ${result.events.length} live events!`);
-          
-          console.log(`🎉 LIVE: Generated ${result.events.length} fresh events!`);
-          
-          // Small delay to show success state
-          await new Promise(resolve => setTimeout(resolve, 800));
-          
-          setLoadingProgress(1);
-          cacheEvents(result.events);
-          setEvents(result.events as any);
-          setFilteredEvents(result.events as any);
-          setLoading(false);
-          setRefreshing(false);
-          return;
-        } else {
-          console.warn('⚠️ Gemini failed, falling back to Toronto events');
-          setLoadingStatus('⚠️ AI unavailable, using local data...');
-        }
-      } else {
-        console.log('⚠️ No Gemini API key, using Toronto events');
-        setLoadingStatus('📍 Loading local events...');
-      }
-
-      // Fallback to Toronto events only if Gemini fails
-      if (selectedCity.name === 'Toronto') {
-        const torontoEvents = generateTorontoEvents(50);
-        clearInterval(progressInterval);
-        setLoadingProgress(1);
-        setLoadingStatus('✅ Found 50 Toronto events!');
+        console.log(`✅ SUCCESS: ${result.events.length} verified events loaded`);
+        console.log(`   Sources: ${result.sources.join(', ')}`);
+        
         await new Promise(resolve => setTimeout(resolve, 500));
-        cacheEvents(torontoEvents);
-        setEvents(torontoEvents);
-        setFilteredEvents(torontoEvents);
+        
+        setLoadingProgress(1);
+        cacheEvents(result.events);
+        setEvents(result.events);
+        setFilteredEvents(result.events);
         setLoading(false);
         setRefreshing(false);
         return;
