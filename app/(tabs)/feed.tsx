@@ -10,7 +10,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { getEventsNearLocation, getEventsByCategory, Event } from '../../lib/events-api';
 import { generateTorontoEvents } from '../../lib/toronto-events';
-import { formatDistance } from '../../lib/helpers';
+import { calculateDistance } from '../../lib/helpers';
 import { EventListSkeleton } from '../../components/LoadingSkeleton';
 import { LoadingProgress } from '../../components/LoadingProgress';
 import { PremiumEventCard } from '../../components/PremiumEventCard';
@@ -255,8 +255,8 @@ export default function FeedScreen() {
   };
 
   const renderEventCard = ({ item }: { item: Event }) => {
-    const distance = userLocation
-      ? formatDistance(
+    const distance = userLocation && item.venue.latitude && item.venue.longitude
+      ? calculateDistance(
           userLocation.latitude,
           userLocation.longitude,
           item.venue.latitude,

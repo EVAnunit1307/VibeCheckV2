@@ -10,14 +10,14 @@ import {
 
 /**
  * Calculate distance between two coordinates using Haversine formula
- * Returns formatted string like "2.3 miles"
+ * Returns distance in miles as a number
  */
-export function formatDistance(
+export function calculateDistance(
   lat1: number,
   lng1: number,
   lat2: number,
   lng2: number
-): string {
+): number {
   const R = 3959; // Earth's radius in miles
   const dLat = toRadians(lat2 - lat1);
   const dLng = toRadians(lng2 - lng1);
@@ -30,7 +30,20 @@ export function formatDistance(
       Math.sin(dLng / 2);
 
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const distance = R * c;
+  return R * c;
+}
+
+/**
+ * Calculate distance and return formatted string
+ * Returns formatted string like "2.3 miles"
+ */
+export function formatDistance(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number
+): string {
+  const distance = calculateDistance(lat1, lng1, lat2, lng2);
 
   if (distance < 0.1) {
     return '< 0.1 miles';
