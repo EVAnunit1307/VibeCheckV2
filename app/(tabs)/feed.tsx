@@ -295,12 +295,13 @@ export default function FeedScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>Discover Events</Text>
+          <Text style={styles.headerTitle}>🤖 Live AI Events</Text>
           <TouchableOpacity onPress={() => setShowCityPicker(true)} style={styles.locationButton}>
             <MaterialCommunityIcons name="map-marker" size={16} color="#6366f1" />
             <Text style={styles.locationText}>{selectedCity.name}, {selectedCity.province}</Text>
             <MaterialCommunityIcons name="chevron-down" size={16} color="#6366f1" />
           </TouchableOpacity>
+          <Text style={styles.headerSubtext}>Generated live with Gemini AI</Text>
         </View>
       </View>
 
@@ -529,6 +530,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#6366f1',
+  },
+  headerSubtext: {
+    fontSize: 11,
+    color: '#9ca3af',
+    marginTop: 4,
+    fontStyle: 'italic',
   },
   searchContainer: {
     paddingHorizontal: 20,
