@@ -1,36 +1,33 @@
+/**
+ * Feed Screen - Event Discovery (Eventbrite/Fever Style)
+ * Modern, mobile-first, production-ready
+ */
+
 import { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, FlatList, RefreshControl, Image, TouchableOpacity } from 'react-native';
-import { Text, Searchbar, Chip, Card, Button, Portal, Modal, FAB } from 'react-native-paper';
+import { View, StyleSheet, FlatList, RefreshControl, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { Text, Searchbar, Chip, Button, Portal, Modal } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { supabase } from '../../lib/supabase';
-import { formatEventDate, formatDistance } from '../../lib/helpers';
+import * as Location from 'expo-location';
+import { getEventsNearLocation, getEventsByCategory, Event } from '../../lib/events-api';
+import { generateTorontoEvents } from '../../lib/toronto-events';
+import { formatDistance } from '../../lib/helpers';
 import { EventListSkeleton } from '../../components/LoadingSkeleton';
+import { LoadingProgress } from '../../components/LoadingProgress';
+import { ModernEventCard } from '../../components/ModernEventCard';
+import { MAJOR_CITIES, City, getDefaultCity } from '../../lib/cities';
+import { searchEventsWithGemini } from '../../lib/gemini-events';
 
-type Event = {
-  id: string;
-  title: string;
-  description: string;
-  start_time: string;
-  category: string;
-  is_free: boolean;
-  price_min: number | null;
-  price_max: number | null;
-  cover_image_url: string | null;
-  venue: {
-    id: string;
-    name: string;
-    city: string;
-    latitude: number;
-    longitude: number;
-  };
-};
-
-const CATEGORIES = ['all', 'nightlife', 'dining', 'entertainment', 'other'];
-const USER_LAT = 40.7589; // Mock user location (NYC)
-const USER_LNG = -73.9851;
+const CATEGORIES = [
+  { id: 'all', name: '🎭 All', icon: 'view-grid' },
+  { id: '103', name: '🎵 Music', icon: 'music' },
+  { id: '110', name: '🍕 Food', icon: 'food' },
+  { id: '105', name: '🎬 Arts', icon: 'palette' },
+  { id: '108', name: '⚽ Sports', icon: 'basketball' },
+  { id: '116', name: '✈️ Travel', icon: 'airplane' },
+];
 
 export default function FeedScreen() {
   const router = useRouter();
@@ -42,41 +39,150 @@ export default function FeedScreen() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
   const [priceFilter, setPriceFilter] = useState<'all' | 'free' | 'paid'>('all');
-  const [distanceFilter, setDistanceFilter] = useState<number>(50); // miles
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locationPermission, setLocationPermission] = useState(false);
+  const [selectedCity, setSelectedCity] = useState<City>(getDefaultCity());
+  const [showCityPicker, setShowCityPicker] = useState(false);
+  const [loadingStatus, setLoadingStatus] = useState('');
+  const [loadingProgress, setLoadingProgress] = useState(0);
 
+  // Initialize with default city (Toronto)
+  useEffect(() => {
+    setUserLocation({
+      latitude: selectedCity.latitude,
+      longitude: selectedCity.longitude,
+    });
+  }, [selectedCity]);
+
+  // Request location permissions
+  useEffect(() => {
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          setLocationPermission(true);
+        }
+      } catch (error) {
+        console.error('Error requesting location permission:', error);
+      }
+    })();
+  }, []);
+
+  // Fetch events with proper loading states
   const fetchEvents = async () => {
+    if (!userLocation) return;
+
     try {
-      const { data, error } = await supabase
-        .from('events')
-        .select(`
-          *,
-          venue:venues(
-            id,
-            name,
-            city,
-            latitude,
-            longitude
-          )
-        `)
-        .gte('start_time', new Date().toISOString())
-        .order('start_time', { ascending: true })
-        .limit(50);
+      setLoading(true);
+      setLoadingProgress(0);
+      setLoadingStatus('🔍 Searching for events...');
 
-      if (error) throw error;
+      // Simulate realistic loading progress
+      const progressInterval = setInterval(() => {
+        setLoadingProgress((prev) => Math.min(prev + 0.1, 0.9));
+      }, 200);
 
-      setEvents(data || []);
-      setFilteredEvents(data || []);
+      // 🤖 Try Gemini AI first for best results
+      if (process.env.EXPO_PUBLIC_GEMINI_API_KEY) {
+        setLoadingStatus('🤖 Using AI to find events...');
+        
+        const categoryMap: { [key: string]: string } = {
+          'all': 'concerts, parties, nightlife, festivals, social events, sports, arts, food & drink',
+          '103': 'concerts, music events, live music',
+          '110': 'food festivals, restaurant events, food & drink',
+          '105': 'theater, performing arts, comedy shows',
+          '108': 'sports games, fitness events, outdoor activities',
+          '116': 'travel events, tours, adventures',
+        };
+
+        const result = await searchEventsWithGemini(
+          selectedCity.name,
+          selectedCity.province,
+          {
+            category: categoryMap[selectedCategory] || categoryMap['all'],
+            demographic: '18-30 year olds',
+            when: 'upcoming this month and next month',
+          },
+          (status) => setLoadingStatus(status)
+        );
+
+        clearInterval(progressInterval);
+
+        if (result.success && result.events && result.events.length > 0) {
+          setLoadingProgress(1);
+          setLoadingStatus('✅ Found ' + result.events.length + ' events!');
+          
+          // Small delay to show success state
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          setEvents(result.events as any);
+          setFilteredEvents(result.events as any);
+          setLoading(false);
+          setRefreshing(false);
+          return;
+        }
+      }
+
+      // Fallback to Toronto events or API
+      setLoadingStatus('📍 Loading local events...');
+      
+      if (selectedCity.name === 'Toronto') {
+        const torontoEvents = generateTorontoEvents(50);
+        clearInterval(progressInterval);
+        setLoadingProgress(1);
+        setEvents(torontoEvents);
+        setFilteredEvents(torontoEvents);
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
+      // Other cities - use API
+      setLoadingStatus('📡 Fetching from event APIs...');
+      let result;
+      if (selectedCategory === 'all') {
+        result = await getEventsNearLocation(
+          userLocation.latitude,
+          userLocation.longitude,
+          25
+        );
+      } else {
+        result = await getEventsByCategory(
+          selectedCategory,
+          1,
+          userLocation
+        );
+      }
+
+      clearInterval(progressInterval);
+      setLoadingProgress(1);
+
+      if (result.success && result.events) {
+        setEvents(result.events);
+        setFilteredEvents(result.events);
+      } else {
+        Alert.alert('No Events Found', 'Try a different city or category.');
+        setEvents([]);
+        setFilteredEvents([]);
+      }
     } catch (error: any) {
       console.error('Error fetching events:', error);
+      Alert.alert('Error', 'Failed to load events. Please try again.');
+      setEvents([]);
+      setFilteredEvents([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setLoadingProgress(0);
+      setLoadingStatus('');
     }
   };
 
   useEffect(() => {
-    fetchEvents();
-  }, []);
+    if (userLocation) {
+      fetchEvents();
+    }
+  }, [userLocation, selectedCategory]);
 
   // Apply filters
   useEffect(() => {
@@ -93,11 +199,6 @@ export default function FeedScreen() {
       );
     }
 
-    // Category filter
-    if (selectedCategory !== 'all') {
-      filtered = filtered.filter((event) => event.category === selectedCategory);
-    }
-
     // Price filter
     if (priceFilter === 'free') {
       filtered = filtered.filter((event) => event.is_free);
@@ -105,236 +206,281 @@ export default function FeedScreen() {
       filtered = filtered.filter((event) => !event.is_free);
     }
 
-    // Distance filter
-    filtered = filtered.filter((event) => {
-      const distance = calculateDistance(
-        USER_LAT,
-        USER_LNG,
-        event.venue.latitude,
-        event.venue.longitude
-      );
-      return distance <= distanceFilter;
-    });
-
     setFilteredEvents(filtered);
-  }, [searchQuery, selectedCategory, priceFilter, distanceFilter, events]);
-
-  const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => {
-    const R = 3959; // Earth's radius in miles
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLng = ((lng2 - lng1) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((lat1 * Math.PI) / 180) *
-        Math.cos((lat2 * Math.PI) / 180) *
-        Math.sin(dLng / 2) *
-        Math.sin(dLng / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
+  }, [events, searchQuery, priceFilter]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchEvents();
-  }, []);
+  }, [userLocation, selectedCategory]);
+
+  const handleUseMyLocation = async () => {
+    if (!locationPermission) {
+      Alert.alert(
+        'Location Permission Required',
+        'Please enable location permissions in your device settings.'
+      );
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const location = await Location.getCurrentPositionAsync({});
+      setUserLocation({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      });
+      Alert.alert('✅ Success', 'Now showing events near your actual location!');
+    } catch (error) {
+      console.error('Error getting location:', error);
+      Alert.alert('Error', 'Could not get your location. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const renderEventCard = ({ item }: { item: Event }) => {
-    const distance = calculateDistance(
-      USER_LAT,
-      USER_LNG,
-      item.venue.latitude,
-      item.venue.longitude
-    );
-
-    const priceDisplay = item.is_free
-      ? 'Free'
-      : item.price_min === item.price_max
-      ? `$${item.price_min}`
-      : `$${item.price_min}-$${item.price_max}`;
+    const distance = userLocation
+      ? formatDistance(
+          userLocation.latitude,
+          userLocation.longitude,
+          item.venue.latitude,
+          item.venue.longitude
+        )
+      : undefined;
 
     return (
-      <TouchableOpacity onPress={() => router.push(`/event/${item.id}`)}>
-        <Card style={styles.eventCard} mode="elevated">
-          {item.cover_image_url && (
-            <Card.Cover source={{ uri: item.cover_image_url }} style={styles.eventImage} />
-          )}
-          <Card.Content style={styles.eventContent}>
-            <Text style={styles.eventTitle} numberOfLines={2}>
-              {item.title}
-            </Text>
-
-            <View style={styles.eventRow}>
-              <MaterialCommunityIcons name="map-marker" size={16} color="#6b7280" />
-              <Text style={styles.eventVenue} numberOfLines={1}>
-                {item.venue.name}
-              </Text>
-            </View>
-
-            <View style={styles.eventRow}>
-              <MaterialCommunityIcons name="calendar-clock" size={16} color="#6b7280" />
-              <Text style={styles.eventDate}>{formatEventDate(item.start_time)}</Text>
-            </View>
-
-            <View style={styles.eventFooter}>
-              <Chip
-                icon={item.is_free ? 'gift' : 'currency-usd'}
-                style={[styles.priceChip, item.is_free && styles.freeChip]}
-                textStyle={styles.chipText}
-              >
-                {priceDisplay}
-              </Chip>
-              <Text style={styles.distance}>{distance.toFixed(1)} mi away</Text>
-            </View>
-          </Card.Content>
-        </Card>
-      </TouchableOpacity>
+      <ModernEventCard
+        event={item}
+        onPress={() => router.push(`/event/${item.id}` as any)}
+        distance={distance}
+      />
     );
   };
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
-      <MaterialCommunityIcons name="calendar-remove" size={64} color="#d1d5db" />
-      <Text style={styles.emptyTitle}>No Events Found</Text>
-      <Text style={styles.emptyText}>
-        {searchQuery
-          ? 'Try adjusting your search or filters'
-          : 'Check back later for upcoming events'}
+      <MaterialCommunityIcons name="calendar-remove-outline" size={80} color="#e5e7eb" />
+      <Text style={styles.emptyStateTitle}>No events found</Text>
+      <Text style={styles.emptyStateText}>
+        Try adjusting your filters or selecting a different city
       </Text>
-      {(searchQuery || selectedCategory !== 'all' || priceFilter !== 'all') && (
-        <Button
-          mode="outlined"
-          onPress={() => {
-            setSearchQuery('');
-            setSelectedCategory('all');
-            setPriceFilter('all');
-            setDistanceFilter(50);
-          }}
-          style={styles.clearButton}
-        >
-          Clear Filters
-        </Button>
-      )}
+      <Button mode="contained" onPress={onRefresh} style={styles.emptyStateButton}>
+        Refresh Feed
+      </Button>
     </View>
   );
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Discover Events</Text>
-        <Searchbar
-          placeholder="Search events or venues..."
-          onChangeText={setSearchQuery}
-          value={searchQuery}
-          style={styles.searchBar}
-          iconColor="#6366f1"
-        />
+      <StatusBar style="dark" />
 
-        {/* Category Filters */}
-        <View style={styles.categoryContainer}>
-          <FlatList
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            data={CATEGORIES}
-            keyExtractor={(item) => item}
-            renderItem={({ item }) => (
-              <Chip
-                selected={selectedCategory === item}
-                onPress={() => setSelectedCategory(item)}
-                style={styles.categoryChip}
-                selectedColor={selectedCategory === item ? '#fff' : '#6366f1'}
-                textStyle={{
-                  color: selectedCategory === item ? '#fff' : '#6b7280',
-                }}
-                mode={selectedCategory === item ? 'flat' : 'outlined'}
-              >
-                {item.charAt(0).toUpperCase() + item.slice(1)}
-              </Chip>
-            )}
-            contentContainerStyle={styles.categoryList}
-          />
-          <TouchableOpacity onPress={() => setShowFilters(true)} style={styles.filterButton}>
-            <MaterialCommunityIcons name="filter-variant" size={24} color="#6366f1" />
+      {/* Header */}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.headerTitle}>Discover Events</Text>
+          <TouchableOpacity onPress={() => setShowCityPicker(true)} style={styles.locationButton}>
+            <MaterialCommunityIcons name="map-marker" size={16} color="#6366f1" />
+            <Text style={styles.locationText}>{selectedCity.name}, {selectedCity.province}</Text>
+            <MaterialCommunityIcons name="chevron-down" size={16} color="#6366f1" />
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Event List */}
-      {loading ? (
-        <FlatList
-          data={[1, 2, 3]}
-          renderItem={() => <EventListSkeleton count={1} />}
-          keyExtractor={(item) => item.toString()}
+      {/* Search Bar */}
+      <View style={styles.searchContainer}>
+        <Searchbar
+          placeholder="Search events, venues..."
+          onChangeText={setSearchQuery}
+          value={searchQuery}
+          style={styles.searchBar}
+          inputStyle={styles.searchInput}
+          icon="magnify"
+          clearIcon="close"
         />
+      </View>
+
+      {/* Category Pills */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.categoryList}
+      >
+        {CATEGORIES.map((cat) => (
+          <Chip
+            key={cat.id}
+            selected={selectedCategory === cat.id}
+            onPress={() => setSelectedCategory(cat.id)}
+            style={[
+              styles.categoryChip,
+              selectedCategory === cat.id && styles.categoryChipSelected,
+            ]}
+            textStyle={[
+              styles.categoryChipText,
+              selectedCategory === cat.id && styles.categoryChipTextSelected,
+            ]}
+            mode="flat"
+          >
+            {cat.name}
+          </Chip>
+        ))}
+      </ScrollView>
+
+      {/* Filter Row */}
+      <View style={styles.filterRow}>
+        <TouchableOpacity
+          style={styles.filterButton}
+          onPress={() => setShowFilters(true)}
+        >
+          <MaterialCommunityIcons name="filter-variant" size={18} color="#6366f1" />
+          <Text style={styles.filterButtonText}>Filters</Text>
+        </TouchableOpacity>
+
+        {priceFilter !== 'all' && (
+          <Chip
+            onClose={() => setPriceFilter('all')}
+            style={styles.activeFilterChip}
+            textStyle={styles.activeFilterText}
+          >
+            {priceFilter === 'free' ? 'Free only' : 'Paid only'}
+          </Chip>
+        )}
+      </View>
+
+      {/* Events List */}
+      {loading && !refreshing ? (
+        <LoadingProgress status={loadingStatus} progress={loadingProgress} />
       ) : (
         <FlatList
           data={filteredEvents}
           renderItem={renderEventCard}
           keyExtractor={(item) => item.id}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={['#6366f1']}
+            />
+          }
           ListEmptyComponent={renderEmptyState}
+          showsVerticalScrollIndicator={false}
         />
       )}
 
-      {/* Filter Modal */}
+      {/* City Selection Modal */}
       <Portal>
+        <Modal
+          visible={showCityPicker}
+          onDismiss={() => setShowCityPicker(false)}
+          contentContainerStyle={styles.modalContainer}
+        >
+          <Text style={styles.modalTitle}>Select a City</Text>
+          <ScrollView style={styles.cityList}>
+            {MAJOR_CITIES.map((city) => (
+              <TouchableOpacity
+                key={city.name}
+                style={[
+                  styles.cityItem,
+                  selectedCity.name === city.name && styles.cityItemSelected,
+                ]}
+                onPress={() => {
+                  setSelectedCity(city);
+                  setShowCityPicker(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.cityItemText,
+                    selectedCity.name === city.name && styles.cityItemTextSelected,
+                  ]}
+                >
+                  {city.emoji} {city.name}, {city.province}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          <Button
+            mode="contained"
+            onPress={handleUseMyLocation}
+            disabled={!locationPermission}
+            style={styles.useLocationButton}
+            icon="crosshairs-gps"
+          >
+            Use My Current Location
+          </Button>
+        </Modal>
+
+        {/* Price Filter Modal */}
         <Modal
           visible={showFilters}
           onDismiss={() => setShowFilters(false)}
-          contentContainerStyle={styles.modalContent}
+          contentContainerStyle={styles.modalContainer}
         >
-          <Text style={styles.modalTitle}>Filters</Text>
-
-          <Text style={styles.filterLabel}>Price</Text>
-          <View style={styles.filterRow}>
-            <Chip
-              selected={priceFilter === 'all'}
-              onPress={() => setPriceFilter('all')}
-              style={styles.filterChip}
-              mode={priceFilter === 'all' ? 'flat' : 'outlined'}
+          <Text style={styles.modalTitle}>Filter by Price</Text>
+          <View style={styles.filterOptions}>
+            <TouchableOpacity
+              style={[
+                styles.filterOption,
+                priceFilter === 'all' && styles.filterOptionSelected,
+              ]}
+              onPress={() => {
+                setPriceFilter('all');
+                setShowFilters(false);
+              }}
             >
-              All
-            </Chip>
-            <Chip
-              selected={priceFilter === 'free'}
-              onPress={() => setPriceFilter('free')}
-              style={styles.filterChip}
-              mode={priceFilter === 'free' ? 'flat' : 'outlined'}
-            >
-              Free
-            </Chip>
-            <Chip
-              selected={priceFilter === 'paid'}
-              onPress={() => setPriceFilter('paid')}
-              style={styles.filterChip}
-              mode={priceFilter === 'paid' ? 'flat' : 'outlined'}
-            >
-              Paid
-            </Chip>
-          </View>
-
-          <Text style={styles.filterLabel}>Distance: {distanceFilter} miles</Text>
-          <View style={styles.distanceOptions}>
-            {[5, 10, 25, 50].map((miles) => (
-              <Chip
-                key={miles}
-                selected={distanceFilter === miles}
-                onPress={() => setDistanceFilter(miles)}
-                style={styles.filterChip}
-                mode={distanceFilter === miles ? 'flat' : 'outlined'}
+              <Text
+                style={[
+                  styles.filterOptionText,
+                  priceFilter === 'all' && styles.filterOptionTextSelected,
+                ]}
               >
-                {miles} mi
-              </Chip>
-            ))}
-          </View>
+                All Events
+              </Text>
+            </TouchableOpacity>
 
-          <Button mode="contained" onPress={() => setShowFilters(false)} style={styles.applyButton}>
-            Apply Filters
-          </Button>
+            <TouchableOpacity
+              style={[
+                styles.filterOption,
+                priceFilter === 'free' && styles.filterOptionSelected,
+              ]}
+              onPress={() => {
+                setPriceFilter('free');
+                setShowFilters(false);
+              }}
+            >
+              <Text
+                style={[
+                  styles.filterOptionText,
+                  priceFilter === 'free' && styles.filterOptionTextSelected,
+                ]}
+              >
+                Free Only
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.filterOption,
+                priceFilter === 'paid' && styles.filterOptionSelected,
+              ]}
+              onPress={() => {
+                setPriceFilter('paid');
+                setShowFilters(false);
+              }}
+            >
+              <Text
+                style={[
+                  styles.filterOptionText,
+                  priceFilter === 'paid' && styles.filterOptionTextSelected,
+                ]}
+              >
+                Paid Only
+              </Text>
+            </TouchableOpacity>
+          </View>
         </Modal>
       </Portal>
-
-      <StatusBar style="auto" />
     </SafeAreaView>
   );
 }
@@ -345,153 +491,177 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9fafb',
   },
   header: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: '#f3f4f6',
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
+    fontSize: 24,
+    fontWeight: '700',
     color: '#111827',
-    marginBottom: 12,
+    marginBottom: 4,
   },
-  searchBar: {
-    backgroundColor: '#f3f4f6',
-    elevation: 0,
-    marginBottom: 12,
-  },
-  categoryContainer: {
+  locationButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
+  },
+  locationText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6366f1',
+  },
+  searchContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+  },
+  searchBar: {
+    elevation: 0,
+    backgroundColor: '#f3f4f6',
+  },
+  searchInput: {
+    fontSize: 15,
   },
   categoryList: {
-    paddingRight: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    gap: 8,
   },
   categoryChip: {
     marginRight: 8,
     backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
-  filterButton: {
-    padding: 8,
+  categoryChipSelected: {
+    backgroundColor: '#6366f1',
+    borderColor: '#6366f1',
   },
-  list: {
-    paddingVertical: 8,
-  },
-  eventCard: {
-    marginHorizontal: 16,
-    marginVertical: 8,
-    backgroundColor: '#fff',
-    overflow: 'hidden',
-  },
-  eventImage: {
-    height: 200,
-  },
-  eventContent: {
-    padding: 16,
-  },
-  eventTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: 12,
-  },
-  eventRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  eventVenue: {
+  categoryChipText: {
+    color: '#6b7280',
     fontSize: 14,
-    color: '#6b7280',
-    marginLeft: 6,
-    flex: 1,
-  },
-  eventDate: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginLeft: 6,
-  },
-  eventFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  priceChip: {
-    backgroundColor: '#dbeafe',
-  },
-  freeChip: {
-    backgroundColor: '#dcfce7',
-  },
-  chipText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  distance: {
-    fontSize: 12,
-    color: '#6b7280',
     fontWeight: '500',
   },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 32,
-    marginTop: 64,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#111827',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#6b7280',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  clearButton: {
-    marginTop: 16,
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    padding: 24,
-    margin: 20,
-    borderRadius: 12,
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 24,
-  },
-  filterLabel: {
-    fontSize: 16,
+  categoryChipTextSelected: {
+    color: '#fff',
     fontWeight: '600',
-    marginBottom: 12,
-    marginTop: 8,
   },
   filterRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 12,
     gap: 8,
-    marginBottom: 16,
   },
-  filterChip: {
-    marginRight: 8,
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#fff',
+  },
+  filterButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6366f1',
+  },
+  activeFilterChip: {
+    backgroundColor: '#e0e7ff',
+  },
+  activeFilterText: {
+    color: '#6366f1',
+    fontWeight: '600',
+  },
+  listContent: {
+    padding: 16,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  emptyStateTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+    marginTop: 16,
     marginBottom: 8,
   },
-  distanceOptions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 24,
+  emptyStateText: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginBottom: 20,
   },
-  applyButton: {
-    backgroundColor: '#6366f1',
+  emptyStateButton: {
+    marginTop: 10,
+  },
+  modalContainer: {
+    backgroundColor: 'white',
+    padding: 20,
+    margin: 20,
+    borderRadius: 16,
+    maxHeight: '80%',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 20,
+    color: '#111827',
+  },
+  cityList: {
+    maxHeight: 300,
+  },
+  cityItem: {
+    paddingVertical: 15,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  cityItemSelected: {
+    backgroundColor: '#e0e7ff',
+  },
+  cityItemText: {
+    fontSize: 16,
+    color: '#374151',
+  },
+  cityItemTextSelected: {
+    fontWeight: '700',
+    color: '#6366f1',
+  },
+  useLocationButton: {
+    marginTop: 20,
+  },
+  filterOptions: {
+    gap: 12,
+  },
+  filterOption: {
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#fff',
+  },
+  filterOptionSelected: {
+    backgroundColor: '#e0e7ff',
+    borderColor: '#6366f1',
+  },
+  filterOptionText: {
+    fontSize: 16,
+    color: '#374151',
+    fontWeight: '500',
+  },
+  filterOptionTextSelected: {
+    color: '#6366f1',
+    fontWeight: '700',
   },
 });

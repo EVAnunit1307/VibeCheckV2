@@ -53,17 +53,15 @@ function RootLayoutNav() {
     };
   }, [user]);
 
-  // Protect routes based on auth state (optional - allow demo mode)
+  // Protect routes based on auth state
   useEffect(() => {
     if (!initialized) return;
-
-    // If logged in and on home/auth, redirect to feed
     if (session && (segments[0] === 'index' || segments[0] === 'auth')) {
       router.replace('/(tabs)/feed');
     }
   }, [session, initialized, segments]);
 
-  // Show loading screen while initializing
+  // Show loading screen while checking auth
   if (!initialized || loading) {
     return (
       <View style={styles.loadingContainer}>
