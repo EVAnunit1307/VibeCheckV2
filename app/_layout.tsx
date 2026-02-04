@@ -1,18 +1,57 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { PaperProvider } from 'react-native-paper';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { useAuthStore } from '../store/auth';
+import { 
+  setupNotificationHandler, 
+  handleNotificationResponse,
+  registerForPushNotifications 
+} from '../lib/notifications';
 
 function RootLayoutNav() {
   const router = useRouter();
   const segments = useSegments();
-  const { session, initialized, loading, initialize } = useAuthStore();
+  const { session, user, initialized, loading, initialize } = useAuthStore();
+  const notificationListener = useRef<any>();
+  const responseListener = useRef<any>();
 
   // Initialize auth on mount
   useEffect(() => {
     initialize();
   }, []);
+
+  // Setup notifications
+  useEffect(() => {
+    // Set up notification handler
+    setupNotificationHandler();
+
+    // Register for push notifications if user is logged in
+    if (user?.id) {
+      registerForPushNotifications(user.id);
+    }
+
+    // Listen for notifications received while app is foregrounded
+    notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
+      console.log('Notification received:', notification);
+    });
+
+    // Listen for user tapping on notifications
+    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+      handleNotificationResponse(response, router);
+    });
+
+    // Cleanup
+    return () => {
+      if (notificationListener.current) {
+        Notifications.removeNotificationSubscription(notificationListener.current);
+      }
+      if (responseListener.current) {
+        Notifications.removeNotificationSubscription(responseListener.current);
+      }
+    };
+  }, [user]);
 
   // Protect routes based on auth state (optional - allow demo mode)
   useEffect(() => {
