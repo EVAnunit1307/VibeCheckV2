@@ -83,7 +83,10 @@ export default function FeedScreen() {
       let sources: string[] = [];
 
       // STRATEGY 1: Gemini Web Search (searches Instagram, Eventbrite, etc.)
+      console.log('🔑 Gemini API Key Check:', process.env.EXPO_PUBLIC_GEMINI_API_KEY ? 'EXISTS ✓' : 'MISSING ✗');
+      
       if (process.env.EXPO_PUBLIC_GEMINI_API_KEY) {
+        console.log('🤖 Starting Gemini web search...');
         setLoadingProgress(0.2);
         setLoadingStatus('🤖 Gemini searching the web...');
         
@@ -98,18 +101,25 @@ export default function FeedScreen() {
             },
             (status) => {
               setLoadingStatus(status);
-              console.log('Gemini:', status);
+              console.log('🤖 Gemini Progress:', status);
             }
           );
 
+          console.log('🤖 Gemini Result:', geminiResult);
+
           if (geminiResult.success && geminiResult.events.length > 0) {
+            console.log(`✅ SUCCESS! Gemini found ${geminiResult.events.length} real events!`);
             allEvents.push(...(geminiResult.events as any));
             sources.push(...geminiResult.sources);
-            console.log(`✅ Gemini: ${geminiResult.events.length} real events found via web search`);
+          } else {
+            console.warn('⚠️ Gemini returned 0 events');
           }
-        } catch (geminiError) {
-          console.warn('⚠️ Gemini search failed:', geminiError);
+        } catch (geminiError: any) {
+          console.error('❌ Gemini search ERROR:', geminiError.message);
+          console.error('❌ Full error:', geminiError);
         }
+      } else {
+        console.warn('⚠️ Skipping Gemini - no API key');
       }
 
       // STRATEGY 2: Direct APIs (Ticketmaster, Eventbrite, SeatGeek)

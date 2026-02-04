@@ -47,6 +47,13 @@ export async function searchRealEventsWithGemini(
   onProgress?: (status: string) => void
 ): Promise<{ success: boolean; events: RealSearchedEvent[]; sources: string[] }> {
   
+  console.log('🤖 =================================');
+  console.log('🤖 GEMINI WEB SEARCH STARTING');
+  console.log('🤖 City:', city, state);
+  console.log('🤖 Options:', options);
+  console.log('🤖 API Key:', GEMINI_API_KEY ? 'EXISTS ✓' : 'MISSING ✗');
+  console.log('🤖 =================================');
+  
   if (!GEMINI_API_KEY) {
     console.error('❌ Gemini API key not configured');
     return { success: false, events: [], sources: [] };
@@ -55,11 +62,13 @@ export async function searchRealEventsWithGemini(
   try {
     onProgress?.('🔍 Searching web for real events...');
     
+    console.log('🤖 Initializing Gemini...');
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     
-    // Use Gemini 2.0 Flash with Google Search grounding
+    console.log('🤖 Creating model: gemini-1.5-flash...');
+    // Use stable Gemini 1.5 Flash (not experimental)
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash-exp',
+      model: 'gemini-1.5-flash',
       generationConfig: {
         temperature: 0.1, // LOW temperature for factual responses
         topP: 0.8,
@@ -131,14 +140,18 @@ VALIDATION:
 Search NOW and return 30+ REAL events.`;
 
     onProgress?.('🌐 Gemini searching web sources...');
-    console.log('🤖 Gemini prompt:', prompt.substring(0, 200) + '...');
+    console.log('🤖 Sending prompt to Gemini...');
+    console.log('🤖 Prompt length:', prompt.length);
 
     const result = await model.generateContent(prompt);
+    console.log('🤖 Gemini responded!');
+    
     const response = result.response;
     const text = response.text();
     
     onProgress?.('📊 Processing search results...');
-    console.log('🤖 Gemini raw response length:', text.length);
+    console.log('🤖 Response received! Length:', text.length);
+    console.log('🤖 First 500 chars:', text.substring(0, 500));
 
     // Parse and validate
     let parsedEvents = [];
