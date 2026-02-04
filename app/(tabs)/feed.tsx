@@ -9,7 +9,7 @@ import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { fetchRealEvents, RealEvent } from '../../lib/events-api-real';
-import { searchRealEventsWithGemini } from '../../lib/gemini-search-real';
+import { intelligentEventSearch } from '../../lib/intelligent-event-search';
 import { calculateDistance } from '../../lib/helpers';
 import { EventListSkeleton } from '../../components/LoadingSkeleton';
 import { LoadingProgress } from '../../components/LoadingProgress';
@@ -68,102 +68,55 @@ export default function FeedScreen() {
     })();
   }, []);
 
-  // Fetch REAL EVENTS - Gemini searches web, then try direct APIs
+  // INTELLIGENT EVENT SEARCH - Complete Pipeline
   const fetchEvents = async () => {
     if (!userLocation) return;
 
     try {
       setLoading(true);
       setLoadingProgress(0.1);
-      setLoadingStatus('🔍 Searching for real events...');
+      setLoadingStatus('🚀 Starting intelligent search...');
 
-      console.log(`\n📍 Fetching events for ${selectedCity.name}...`);
+      console.log(`\n🚀 INTELLIGENT SEARCH for ${selectedCity.name}...`);
 
-      let allEvents: Event[] = [];
-      let sources: string[] = [];
-
-      // STRATEGY 1: Gemini Web Search (searches Instagram, Eventbrite, etc.)
-      console.log('🔑 Gemini API Key Check:', process.env.EXPO_PUBLIC_GEMINI_API_KEY ? 'EXISTS ✓' : 'MISSING ✗');
-      
-      if (process.env.EXPO_PUBLIC_GEMINI_API_KEY) {
-        console.log('🤖 Starting Gemini web search...');
-        setLoadingProgress(0.2);
-        setLoadingStatus('🤖 Gemini searching the web...');
-        
-        try {
-          const geminiResult = await searchRealEventsWithGemini(
-            selectedCity.name,
-            selectedCity.province,
-            {
-              category: selectedCategory !== 'all' ? selectedCategory : undefined,
-              when: 'upcoming this month and next month',
-              query: searchQuery,
-            },
-            (status) => {
-              setLoadingStatus(status);
-              console.log('🤖 Gemini Progress:', status);
-            }
-          );
-
-          console.log('🤖 Gemini Result:', geminiResult);
-
-          if (geminiResult.success && geminiResult.events.length > 0) {
-            console.log(`✅ SUCCESS! Gemini found ${geminiResult.events.length} real events!`);
-            allEvents.push(...(geminiResult.events as any));
-            sources.push(...geminiResult.sources);
-          } else {
-            console.warn('⚠️ Gemini returned 0 events');
-          }
-        } catch (geminiError: any) {
-          console.error('❌ Gemini search ERROR:', geminiError.message);
-          console.error('❌ Full error:', geminiError);
+      // Run the complete pipeline
+      const result = await intelligentEventSearch(
+        selectedCity.name,
+        selectedCity.province,
+        userLocation.latitude,
+        userLocation.longitude,
+        {
+          category: selectedCategory !== 'all' ? selectedCategory : undefined,
+          onProgress: (status) => {
+            setLoadingStatus(status);
+            console.log('📊 Progress:', status);
+            // Update progress based on steps
+            if (status.includes('Step 1')) setLoadingProgress(0.2);
+            else if (status.includes('Step 2')) setLoadingProgress(0.4);
+            else if (status.includes('Step 3')) setLoadingProgress(0.6);
+            else if (status.includes('Step 4')) setLoadingProgress(0.8);
+            else if (status.includes('Step 5')) setLoadingProgress(0.9);
+          },
         }
-      } else {
-        console.warn('⚠️ Skipping Gemini - no API key');
-      }
-
-      // STRATEGY 2: Direct APIs (Ticketmaster, Eventbrite, SeatGeek)
-      setLoadingProgress(0.6);
-      setLoadingStatus('🎫 Checking Ticketmaster & more...');
+      );
       
-      try {
-        const apiResult = await fetchRealEvents(
-          userLocation.latitude,
-          userLocation.longitude,
-          25,
-          selectedCategory !== 'all' ? selectedCategory : undefined
-        );
+      setLoadingProgress(1);
 
-        if (apiResult.success && apiResult.events.length > 0) {
-          allEvents.push(...apiResult.events);
-          sources.push(...apiResult.sources);
-          console.log(`✅ APIs: ${apiResult.events.length} events from ${apiResult.sources.join(', ')}`);
-        }
-      } catch (apiError) {
-        console.warn('⚠️ Direct APIs failed:', apiError);
-      }
-
-      setLoadingProgress(0.9);
-
-      // Remove duplicates (same title + same date)
-      const uniqueEvents = deduplicateEvents(allEvents);
-      
-      if (uniqueEvents.length > 0) {
-        setLoadingStatus(`✅ Found ${uniqueEvents.length} real events from ${sources.length} sources`);
+      if (result.success && result.events.length > 0) {
+        setLoadingStatus(`✅ Found ${result.events.length} events from ${result.sources.join(', ')}`);
         
-        console.log(`✅ TOTAL: ${uniqueEvents.length} verified events`);
-        console.log(`   Sources: ${sources.join(', ')}`);
+        console.log(`\n✅ SUCCESS: ${result.events.length} total events`);
+        console.log(`📍 Sources: ${result.sources.join(', ')}`);
         
         await new Promise(resolve => setTimeout(resolve, 500));
         
-        setLoadingProgress(1);
-        cacheEvents(uniqueEvents);
-        setEvents(uniqueEvents);
-        setFilteredEvents(uniqueEvents);
+        cacheEvents(result.events);
+        setEvents(result.events);
+        setFilteredEvents(result.events);
       } else {
-        const message = sources.length === 0 
-          ? 'No API keys configured. Add Gemini or Ticketmaster key to .env'
-          : `No events found in ${selectedCity.name}. Try a different city or category.`;
+        const message = result.sources.length === 0 
+          ? 'No search APIs or Ticketmaster configured. See QUICK-START.md'
+          : `No events found in ${selectedCity.name}. Try a different city.`;
         
         console.warn(`⚠️ ${message}`);
         setLoadingStatus('⚠️ No events found');
@@ -172,9 +125,9 @@ export default function FeedScreen() {
         setFilteredEvents([]);
       }
     } catch (error: any) {
-      console.error('❌ Error fetching events:', error);
-      setLoadingStatus('❌ Failed to load events');
-      Alert.alert('Error', 'Failed to load events. Please try again.');
+      console.error('❌ Pipeline error:', error);
+      setLoadingStatus('❌ Failed');
+      Alert.alert('Error', 'Search failed. Check console for details.');
       setEvents([]);
       setFilteredEvents([]);
     } finally {
@@ -183,17 +136,6 @@ export default function FeedScreen() {
       setLoadingProgress(1);
       setLoadingStatus('');
     }
-  };
-
-  // Helper to remove duplicate events
-  const deduplicateEvents = (events: Event[]): Event[] => {
-    const seen = new Set<string>();
-    return events.filter(event => {
-      const key = `${event.title.toLowerCase()}_${event.start_time}_${event.venue.name}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
   };
 
   useEffect(() => {
@@ -329,7 +271,7 @@ export default function FeedScreen() {
             <Text style={styles.locationText}>{selectedCity.name}, {selectedCity.province}</Text>
             <MaterialCommunityIcons name="chevron-down" size={16} color="#6366f1" />
           </TouchableOpacity>
-          <Text style={styles.headerSubtext}>AI-powered web search + verified APIs</Text>
+          <Text style={styles.headerSubtext}>Web search → Scrape → AI parse → Verify</Text>
         </View>
       </View>
 
