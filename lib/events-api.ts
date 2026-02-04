@@ -1,29 +1,19 @@
-/**
- * UNIFIED EVENTS API - Robust integration for Eventbrite & Ticketmaster
- * Automatically falls back between APIs and mock data
- */
-
+// Unified events API with automatic fallback between multiple sources
 import axios from 'axios';
-
 import { searchEventsWithGemini } from './gemini-events';
 
-// API Keys
 const EVENTBRITE_KEY = process.env.EXPO_PUBLIC_EVENTBRITE_API_KEY || '';
 const TICKETMASTER_KEY = process.env.EXPO_PUBLIC_TICKETMASTER_API_KEY || '';
 const SEATGEEK_KEY = process.env.EXPO_PUBLIC_SEATGEEK_CLIENT_ID || '';
 const MEETUP_KEY = process.env.EXPO_PUBLIC_MEETUP_API_KEY || '';
 const GEMINI_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';
 
-console.log('🔑 API Keys Status:');
-console.log('  🤖 Gemini:', GEMINI_KEY ? `✅ Loaded (${GEMINI_KEY.substring(0, 10)}...)` : '❌ Missing');
-console.log('  Eventbrite:', EVENTBRITE_KEY ? `✅ Loaded (${EVENTBRITE_KEY.substring(0, 10)}...)` : '❌ Missing');
-console.log('  Ticketmaster:', TICKETMASTER_KEY ? `✅ Loaded (${TICKETMASTER_KEY.substring(0, 10)}...)` : '❌ Missing');
-console.log('  SeatGeek:', SEATGEEK_KEY ? `✅ Loaded (${SEATGEEK_KEY.substring(0, 10)}...)` : '❌ Missing');
-console.log('  Meetup:', MEETUP_KEY ? `✅ Loaded (${MEETUP_KEY.substring(0, 10)}...)` : '❌ Missing');
-
-// ============================================================================
-// UNIFIED EVENT TYPE
-// ============================================================================
+console.log('API Keys loaded:');
+console.log('  Gemini:', GEMINI_KEY ? `Yes (${GEMINI_KEY.substring(0, 10)}...)` : 'No');
+console.log('  Eventbrite:', EVENTBRITE_KEY ? `Yes (${EVENTBRITE_KEY.substring(0, 10)}...)` : 'No');
+console.log('  Ticketmaster:', TICKETMASTER_KEY ? `Yes (${TICKETMASTER_KEY.substring(0, 10)}...)` : 'No');
+console.log('  SeatGeek:', SEATGEEK_KEY ? `Yes (${SEATGEEK_KEY.substring(0, 10)}...)` : 'No');
+console.log('  Meetup:', MEETUP_KEY ? `Yes (${MEETUP_KEY.substring(0, 10)}...)` : 'No');
 
 export interface UnifiedEvent {
   id: string;
@@ -61,12 +51,12 @@ export type Event = UnifiedEvent;
 
 async function fetchFromEventbrite(latitude: number, longitude: number, radiusMiles: number = 25) {
   if (!EVENTBRITE_KEY) {
-    console.log('⚠️ Eventbrite key not configured');
+    console.log('Eventbrite key not configured');
     return null;
   }
 
   try {
-    console.log(`🎟️ Eventbrite API: Fetching UPCOMING events near (${latitude}, ${longitude}) within ${radiusMiles}mi`);
+    console.log(`Eventbrite: Fetching events near (${latitude}, ${longitude}) within ${radiusMiles}mi`);
     
     // Calculate dates for upcoming events only
     const now = new Date();
@@ -91,10 +81,10 @@ async function fetchFromEventbrite(latitude: number, longitude: number, radiusMi
     });
 
     const events = response.data.events || [];
-    console.log(`✅ Eventbrite: Found ${events.length} REAL upcoming events`);
+    console.log(`Eventbrite: Found ${events.length} events`);
     
     if (events.length === 0) {
-      console.warn('⚠️ Eventbrite returned 0 events for this location');
+      console.warn('Eventbrite returned 0 events for this location');
       return null; // Let it try Ticketmaster
     }
 
@@ -119,7 +109,7 @@ async function fetchFromEventbrite(latitude: number, longitude: number, radiusMi
       source: 'eventbrite' as const,
     }));
   } catch (error: any) {
-    console.warn('⚠️ Eventbrite failed:', error.response?.data?.error_description || error.message);
+    console.warn('Eventbrite failed:', error.response?.data?.error_description || error.message);
     return null;
   }
 }
@@ -130,12 +120,12 @@ async function fetchFromEventbrite(latitude: number, longitude: number, radiusMi
 
 async function fetchFromTicketmaster(latitude: number, longitude: number, radiusMiles: number = 25) {
   if (!TICKETMASTER_KEY) {
-    console.log('⚠️ Ticketmaster key not configured');
+    console.log('Ticketmaster key not configured');
     return null;
   }
 
   try {
-    console.log(`🎫 Ticketmaster API: Fetching UPCOMING events near (${latitude}, ${longitude}) within ${radiusMiles}mi`);
+    console.log(`Ticketmaster: Fetching events near (${latitude}, ${longitude}) within ${radiusMiles}mi`);
     
     const response = await axios.get('https://app.ticketmaster.com/discovery/v2/events.json', {
       params: {
@@ -151,10 +141,10 @@ async function fetchFromTicketmaster(latitude: number, longitude: number, radius
     });
 
     const events = response.data._embedded?.events || [];
-    console.log(`✅ Ticketmaster: Found ${events.length} REAL upcoming events`);
+    console.log(`Ticketmaster: Found ${events.length} events`);
     
     if (events.length === 0) {
-      console.warn('⚠️ Ticketmaster returned 0 events for this location');
+      console.warn('Ticketmaster returned 0 events for this location');
       return null;
     }
 
@@ -429,15 +419,13 @@ export async function getEventsNearLocation(
   longitude: number,
   radiusMiles: number = 25
 ): Promise<{ success: boolean; events: UnifiedEvent[]; source: string }> {
-  console.log(`\n🌍 ==========================================`);
-  console.log(`📍 Location: (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`);
-  console.log(`📏 Radius: ${radiusMiles} miles`);
-  console.log(`🔑 Keys: GEMINI=${!!GEMINI_KEY}, TM=${!!TICKETMASTER_KEY}, EB=${!!EVENTBRITE_KEY}, SG=${!!SEATGEEK_KEY}, MU=${!!MEETUP_KEY}`);
-  console.log(`==========================================\n`);
+  console.log(`\nFetching events...`);
+  console.log(`Location: (${latitude.toFixed(4)}, ${longitude.toFixed(4)}) - Radius: ${radiusMiles} miles`);
+  console.log(`APIs configured: GEMINI=${!!GEMINI_KEY}, TM=${!!TICKETMASTER_KEY}, EB=${!!EVENTBRITE_KEY}, SG=${!!SEATGEEK_KEY}, MU=${!!MEETUP_KEY}\n`);
 
   // 🤖 GEMINI FIRST - Uses Google Search to find REAL events!
   if (GEMINI_KEY) {
-    console.log('🤖 Trying Gemini with Google Search (smartest option!)...');
+    console.log('Trying Gemini for event discovery...');
     // We'll need city name for Gemini - for now use coordinates with traditional APIs
     // In feed.tsx we'll call Gemini separately with city name
   }
@@ -450,7 +438,7 @@ export async function getEventsNearLocation(
     const tmEvents = await fetchFromTicketmaster(latitude, longitude, radiusMiles);
     if (tmEvents && tmEvents.length > 0) {
       allEvents.push(...tmEvents);
-      console.log(`✅ Added ${tmEvents.length} Ticketmaster events`);
+      console.log(`Added ${tmEvents.length} Ticketmaster events`);
     }
   }
 
@@ -459,7 +447,7 @@ export async function getEventsNearLocation(
     const sgEvents = await fetchFromSeatGeek(latitude, longitude, radiusMiles);
     if (sgEvents && sgEvents.length > 0) {
       allEvents.push(...sgEvents);
-      console.log(`✅ Added ${sgEvents.length} SeatGeek events`);
+      console.log(`Added ${sgEvents.length} SeatGeek events`);
     }
   }
 
@@ -468,7 +456,7 @@ export async function getEventsNearLocation(
     const muEvents = await fetchFromMeetup(latitude, longitude, radiusMiles);
     if (muEvents && muEvents.length > 0) {
       allEvents.push(...muEvents);
-      console.log(`✅ Added ${muEvents.length} Meetup events`);
+      console.log(`Added ${muEvents.length} Meetup events`);
     }
   }
 
@@ -477,7 +465,7 @@ export async function getEventsNearLocation(
     const ebEvents = await fetchFromEventbrite(latitude, longitude, radiusMiles);
     if (ebEvents && ebEvents.length > 0) {
       allEvents.push(...ebEvents);
-      console.log(`✅ Added ${ebEvents.length} Eventbrite events`);
+      console.log(`Added ${ebEvents.length} Eventbrite events`);
     }
   }
 
@@ -486,7 +474,7 @@ export async function getEventsNearLocation(
     // Sort by date
     allEvents.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
     
-    console.log(`\n🎉 TOTAL: ${allEvents.length} REAL events from multiple sources!\n`);
+    console.log(`\nTotal: ${allEvents.length} events from multiple sources\n`);
     return { 
       success: true, 
       events: allEvents, 
@@ -512,7 +500,7 @@ export async function getEventsByCategory(
   page: number = 1,
   location?: { latitude: number; longitude: number }
 ): Promise<{ success: boolean; events: UnifiedEvent[]; source: string }> {
-  console.log(`🏷️ Fetching ${categoryId} events, page ${page}`);
+  console.log(`Fetching ${categoryId} events, page ${page}`);
 
   if (location) {
     const result = await getEventsNearLocation(location.latitude, location.longitude, 25);
@@ -553,7 +541,7 @@ export async function searchEvents(
   query: string,
   location?: { latitude: number; longitude: number }
 ): Promise<{ success: boolean; events: UnifiedEvent[]; source: string }> {
-  console.log(`🔍 Searching for: "${query}"`);
+  console.log(`Searching for: "${query}"`);
 
   const result = location
     ? await getEventsNearLocation(location.latitude, location.longitude, 25)

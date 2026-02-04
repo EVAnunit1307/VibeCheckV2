@@ -1,9 +1,4 @@
-/**
- * Toronto Events Generator - PREMIUM VERSION
- * Generates diverse, realistic events with real venues
- * Changes every time for fresh content!
- */
-
+// Toronto event generator with real venues and dynamic content
 import { Event } from './events-api';
 import { VibeId, DressCodeId } from './theme';
 
