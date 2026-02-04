@@ -3,6 +3,7 @@
     "name": "planlock",
     "slug": "planlock",
     "version": "1.0.0",
+    "scheme": "planlock",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
