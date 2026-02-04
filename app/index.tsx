@@ -1,18 +1,15 @@
-import { useState, useEffect } from 'react';
-import { View, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
-import { TextInput, Button, Text, ActivityIndicator } from 'react-native-paper';
+import { View, StyleSheet, Image, ScrollView } from 'react-native';
+import { Button, Text, Card } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
-import { supabase } from '../lib/supabase';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useEffect } from 'react';
 import { useAuthStore } from '../store/auth';
 
-export default function AuthScreen() {
+export default function HomePage() {
   const router = useRouter();
   const { session, initialized, loading: authLoading } = useAuthStore();
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
   // Redirect if already logged in
   useEffect(() => {
@@ -21,124 +18,136 @@ export default function AuthScreen() {
     }
   }, [session, initialized, authLoading]);
 
-  const formatPhoneNumber = (text: string) => {
-    // Remove all non-digit characters except +
-    const cleaned = text.replace(/[^\d+]/g, '');
-    
-    // Format as +1 (XXX) XXX-XXXX
-    if (cleaned.startsWith('+1') && cleaned.length > 2) {
-      const digits = cleaned.slice(2);
-      if (digits.length <= 3) {
-        return `+1 (${digits}`;
-      } else if (digits.length <= 6) {
-        return `+1 (${digits.slice(0, 3)}) ${digits.slice(3)}`;
-      } else {
-        return `+1 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
-      }
-    } else if (cleaned.startsWith('+')) {
-      return cleaned;
-    } else if (cleaned.length > 0) {
-      return `+${cleaned}`;
-    }
-    return cleaned;
+  const handleGetStarted = () => {
+    router.push('/auth');
   };
 
-  const handlePhoneChange = (text: string) => {
-    const formatted = formatPhoneNumber(text);
-    setPhoneNumber(formatted);
-    setError('');
+  const handleDemoMode = () => {
+    // Navigate to tabs without auth for demo/testing
+    router.push('/(tabs)/feed');
   };
-
-  const validatePhone = (phone: string): boolean => {
-    // Remove all non-digit characters
-    const digits = phone.replace(/\D/g, '');
-    return digits.length >= 10;
-  };
-
-  const handleSendCode = async () => {
-    if (!validatePhone(phoneNumber)) {
-      setError('Please enter a valid phone number');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-
-    try {
-      // Remove formatting for API call
-      const cleanPhone = phoneNumber.replace(/[^\d+]/g, '');
-      
-      const { error: signInError } = await supabase.auth.signInWithOtp({
-        phone: cleanPhone,
-      });
-
-      if (signInError) {
-        setError(signInError.message);
-      } else {
-        router.push(`/verify?phone=${encodeURIComponent(cleanPhone)}`);
-      }
-    } catch (err: any) {
-      setError(err?.message || 'Failed to send code. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (!initialized || authLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#6366f1" />
-      </View>
-    );
-  }
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
-      >
-        <View style={styles.content}>
-          <View style={styles.header}>
-            <Text style={styles.title}>VibeCheck</Text>
-            <Text style={styles.subtitle}>Plan together, show up together</Text>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* Hero Section */}
+        <View style={styles.hero}>
+          <Text style={styles.logo}>VibeCheck</Text>
+          <Text style={styles.tagline}>Plan together, show up together</Text>
+          <Text style={styles.description}>
+            The social app that holds everyone accountable. Make plans with friends and track who actually shows up.
+          </Text>
+        </View>
+
+        {/* Features Section */}
+        <View style={styles.features}>
+          <FeatureCard
+            icon="calendar-check"
+            title="Make Plans"
+            description="Vote on events with your group and confirm plans together"
+          />
+          <FeatureCard
+            icon="account-group"
+            title="Track Attendance"
+            description="See who shows up and who flakes with commitment scores"
+          />
+          <FeatureCard
+            icon="trophy"
+            title="Build Trust"
+            description="Earn points for showing up, lose points for canceling"
+          />
+        </View>
+
+        {/* CTA Buttons */}
+        <View style={styles.actions}>
+          <Button
+            mode="contained"
+            onPress={handleGetStarted}
+            style={styles.primaryButton}
+            buttonColor="#6366f1"
+            contentStyle={styles.buttonContent}
+          >
+            Get Started
+          </Button>
+
+          <Button
+            mode="outlined"
+            onPress={handleDemoMode}
+            style={styles.secondaryButton}
+            textColor="#6366f1"
+            contentStyle={styles.buttonContent}
+          >
+            Explore Demo Mode
+          </Button>
+
+          <Text style={styles.demoNote}>
+            * Demo mode lets you explore the app without authentication
+          </Text>
+        </View>
+
+        {/* How It Works */}
+        <View style={styles.howItWorks}>
+          <Text style={styles.sectionTitle}>How It Works</Text>
+          
+          <View style={styles.step}>
+            <View style={styles.stepNumber}>
+              <Text style={styles.stepNumberText}>1</Text>
+            </View>
+            <View style={styles.stepContent}>
+              <Text style={styles.stepTitle}>Create a Group</Text>
+              <Text style={styles.stepDescription}>Add your friends and start planning</Text>
+            </View>
           </View>
 
-          <View style={styles.form}>
-            <TextInput
-              label="Phone Number"
-              value={phoneNumber}
-              onChangeText={handlePhoneChange}
-              placeholder="+1 (555) 000-0000"
-              keyboardType="phone-pad"
-              mode="outlined"
-              outlineColor="#e5e7eb"
-              activeOutlineColor="#6366f1"
-              style={styles.input}
-              disabled={loading}
-              error={!!error}
-            />
+          <View style={styles.step}>
+            <View style={styles.stepNumber}>
+              <Text style={styles.stepNumberText}>2</Text>
+            </View>
+            <View style={styles.stepContent}>
+              <Text style={styles.stepTitle}>Vote on Plans</Text>
+              <Text style={styles.stepDescription}>Everyone votes YES, MAYBE, or NO on events</Text>
+            </View>
+          </View>
 
-            {error ? (
-              <Text style={styles.errorText}>{error}</Text>
-            ) : null}
+          <View style={styles.step}>
+            <View style={styles.stepNumber}>
+              <Text style={styles.stepNumberText}>3</Text>
+            </View>
+            <View style={styles.stepContent}>
+              <Text style={styles.stepTitle}>Check In & Show Up</Text>
+              <Text style={styles.stepDescription}>Check in when you arrive and earn points</Text>
+            </View>
+          </View>
 
-            <Button
-              mode="contained"
-              onPress={handleSendCode}
-              loading={loading}
-              disabled={loading || !phoneNumber}
-              style={styles.button}
-              buttonColor="#6366f1"
-              contentStyle={styles.buttonContent}
-            >
-              {loading ? 'Sending...' : 'Send Code'}
-            </Button>
+          <View style={styles.step}>
+            <View style={styles.stepNumber}>
+              <Text style={styles.stepNumberText}>4</Text>
+            </View>
+            <View style={styles.stepContent}>
+              <Text style={styles.stepTitle}>Build Your Score</Text>
+              <Text style={styles.stepDescription}>Track your commitment score and compete with friends</Text>
+            </View>
           </View>
         </View>
-      </KeyboardAvoidingView>
+      </ScrollView>
       <StatusBar style="auto" />
     </SafeAreaView>
+  );
+}
+
+function FeatureCard({ icon, title, description }: {
+  icon: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <Card style={styles.featureCard} mode="elevated">
+      <Card.Content style={styles.featureContent}>
+        <MaterialCommunityIcons name={icon as any} size={40} color="#6366f1" />
+        <Text style={styles.featureTitle}>{title}</Text>
+        <Text style={styles.featureDescription}>{description}</Text>
+      </Card.Content>
+    </Card>
   );
 }
 
@@ -147,53 +156,123 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: '#fff',
+  scrollContent: {
+    paddingBottom: 32,
+  },
+  hero: {
+    padding: 32,
     alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: '#f9fafb',
   },
-  keyboardView: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 48,
-  },
-  title: {
-    fontSize: 48,
+  logo: {
+    fontSize: 56,
     fontWeight: 'bold',
     color: '#6366f1',
     marginBottom: 8,
   },
-  subtitle: {
-    fontSize: 18,
+  tagline: {
+    fontSize: 20,
+    color: '#6b7280',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  description: {
+    fontSize: 16,
+    color: '#6b7280',
+    textAlign: 'center',
+    lineHeight: 24,
+    maxWidth: 600,
+  },
+  features: {
+    padding: 16,
+    gap: 16,
+  },
+  featureCard: {
+    backgroundColor: '#fff',
+  },
+  featureContent: {
+    alignItems: 'center',
+    padding: 16,
+  },
+  featureTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  featureDescription: {
+    fontSize: 14,
     color: '#6b7280',
     textAlign: 'center',
   },
-  form: {
+  actions: {
+    padding: 24,
+    alignItems: 'center',
+  },
+  primaryButton: {
     width: '100%',
-  },
-  input: {
-    marginBottom: 8,
-    backgroundColor: '#fff',
-  },
-  errorText: {
-    color: '#ef4444',
-    fontSize: 14,
-    marginBottom: 16,
-    marginLeft: 4,
-  },
-  button: {
-    marginTop: 16,
+    maxWidth: 400,
+    marginBottom: 12,
     borderRadius: 8,
+  },
+  secondaryButton: {
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: 8,
+    borderColor: '#6366f1',
   },
   buttonContent: {
     paddingVertical: 8,
+  },
+  demoNote: {
+    fontSize: 12,
+    color: '#9ca3af',
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  howItWorks: {
+    padding: 24,
+    backgroundColor: '#f9fafb',
+  },
+  sectionTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  step: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 24,
+  },
+  stepNumber: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#6366f1',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  stepNumberText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  stepContent: {
+    flex: 1,
+  },
+  stepTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  stepDescription: {
+    fontSize: 14,
+    color: '#6b7280',
+    lineHeight: 20,
   },
 });

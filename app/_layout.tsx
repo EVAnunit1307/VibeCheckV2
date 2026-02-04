@@ -14,18 +14,12 @@ function RootLayoutNav() {
     initialize();
   }, []);
 
-  // Protect routes based on auth state
+  // Protect routes based on auth state (optional - allow demo mode)
   useEffect(() => {
     if (!initialized) return;
 
-    const inAuthGroup = segments[0] === '(tabs)';
-    const onAuthScreens = segments[0] === 'index' || segments[0] === 'verify' || segments[0] === 'profile-setup';
-
-    if (!session && inAuthGroup) {
-      // Redirect to auth if trying to access protected routes
-      router.replace('/');
-    } else if (session && segments[0] === 'index') {
-      // Redirect to feed if already logged in and on auth screen
+    // If logged in and on home/auth, redirect to feed
+    if (session && (segments[0] === 'index' || segments[0] === 'auth')) {
       router.replace('/(tabs)/feed');
     }
   }, [session, initialized, segments]);
@@ -45,10 +39,11 @@ function RootLayoutNav() {
         headerShown: false,
       }}
     >
-      <Stack.Screen name="index" />
-      <Stack.Screen name="verify" />
-      <Stack.Screen name="profile-setup" />
-      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="index" options={{ title: 'Home' }} />
+      <Stack.Screen name="auth" options={{ title: 'Sign In' }} />
+      <Stack.Screen name="verify" options={{ title: 'Verify' }} />
+      <Stack.Screen name="profile-setup" options={{ title: 'Setup' }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
     </Stack>
   );
 }
