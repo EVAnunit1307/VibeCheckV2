@@ -10,9 +10,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { formatEventDate } from '../../lib/helpers';
 import { generateTorontoEvents } from '../../lib/toronto-events';
+
+// Conditionally import MapView only on native platforms
+let MapView: any = null;
+let Marker: any = null;
+let PROVIDER_GOOGLE: any = null;
+
+if (Platform.OS !== 'web') {
+  const MapModule = require('react-native-maps');
+  MapView = MapModule.default;
+  Marker = MapModule.Marker;
+  PROVIDER_GOOGLE = MapModule.PROVIDER_GOOGLE;
+}
 
 const { width, height } = Dimensions.get('window');
 
@@ -204,36 +215,59 @@ export default function EventDetailScreen() {
 
             {/* Map Preview */}
             <View style={styles.mapContainer}>
-              <MapView
-                provider={PROVIDER_GOOGLE}
-                style={styles.map}
-                initialRegion={{
-                  latitude: event.venue.latitude,
-                  longitude: event.venue.longitude,
-                  latitudeDelta: 0.01,
-                  longitudeDelta: 0.01,
-                }}
-                scrollEnabled={false}
-                zoomEnabled={false}
-                pitchEnabled={false}
-                rotateEnabled={false}
-              >
-                <Marker
-                  coordinate={{
-                    latitude: event.venue.latitude,
-                    longitude: event.venue.longitude,
-                  }}
-                  title={event.venue.name}
-                />
-              </MapView>
-              
-              {/* Tap to expand */}
-              <TouchableOpacity style={styles.mapOverlay} onPress={handleOpenInMaps}>
-                <View style={styles.mapButton}>
-                  <MaterialCommunityIcons name="directions" size={16} color="#6366f1" />
-                  <Text style={styles.mapButtonText}>Get Directions</Text>
-                </View>
-              </TouchableOpacity>
+              {Platform.OS !== 'web' && MapView ? (
+                <>
+                  <MapView
+                    provider={PROVIDER_GOOGLE}
+                    style={styles.map}
+                    initialRegion={{
+                      latitude: event.venue.latitude,
+                      longitude: event.venue.longitude,
+                      latitudeDelta: 0.01,
+                      longitudeDelta: 0.01,
+                    }}
+                    scrollEnabled={false}
+                    zoomEnabled={false}
+                    pitchEnabled={false}
+                    rotateEnabled={false}
+                  >
+                    <Marker
+                      coordinate={{
+                        latitude: event.venue.latitude,
+                        longitude: event.venue.longitude,
+                      }}
+                      title={event.venue.name}
+                    />
+                  </MapView>
+                  
+                  {/* Tap to expand */}
+                  <TouchableOpacity style={styles.mapOverlay} onPress={handleOpenInMaps}>
+                    <View style={styles.mapButton}>
+                      <MaterialCommunityIcons name="directions" size={16} color="#6366f1" />
+                      <Text style={styles.mapButtonText}>Get Directions</Text>
+                    </View>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                // Web fallback: Show placeholder with Google Maps link
+                <TouchableOpacity style={styles.webMapPlaceholder} onPress={handleOpenInMaps}>
+                  <Image
+                    source={{ 
+                      uri: `https://maps.googleapis.com/maps/api/staticmap?center=${event.venue.latitude},${event.venue.longitude}&zoom=15&size=600x300&markers=color:red%7C${event.venue.latitude},${event.venue.longitude}&key=YOUR_GOOGLE_MAPS_API_KEY`
+                    }}
+                    style={styles.map}
+                    defaultSource={require('../../assets/icon.png')}
+                  />
+                  <View style={styles.webMapOverlay}>
+                    <MaterialCommunityIcons name="map-marker" size={40} color="#6366f1" />
+                    <Text style={styles.webMapText}>View on Google Maps</Text>
+                    <View style={styles.mapButton}>
+                      <MaterialCommunityIcons name="directions" size={16} color="#6366f1" />
+                      <Text style={styles.mapButtonText}>Get Directions</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
 
@@ -429,6 +463,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#6366f1',
+  },
+  webMapPlaceholder: {
+    position: 'relative',
+    height: 200,
+    backgroundColor: '#e5e7eb',
+  },
+  webMapOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  webMapText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
   },
   descriptionCard: {
     marginBottom: 16,
