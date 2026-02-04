@@ -138,7 +138,7 @@ export default function ProfileSetupScreen() {
         <View style={styles.content}>
           <View style={styles.header}>
             <Text style={styles.title}>Welcome to VibeCheck!</Text>
-            <Text style={styles.subtitle}>Let's set up your profile</Text>
+            <Text style={styles.subtitle}>Set up your profile</Text>
           </View>
 
           <View style={styles.form}>

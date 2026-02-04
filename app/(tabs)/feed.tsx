@@ -1,7 +1,4 @@
-/**
- * Feed Screen - Event Discovery (Eventbrite/Fever Style)
- * Modern, mobile-first, production-ready
- */
+// Event feed - Browse and discover events
 
 import { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, FlatList, RefreshControl, TouchableOpacity, Alert, ScrollView } from 'react-native';

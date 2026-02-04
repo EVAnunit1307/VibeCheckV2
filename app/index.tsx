@@ -1,7 +1,4 @@
-/**
- * VibeCheck - Mobile-First Launch Homepage
- * Reference: Eventbrite, Fever app onboarding
- */
+// VibeCheck landing page
 
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView } from 'react-native';
