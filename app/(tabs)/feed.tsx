@@ -9,6 +9,7 @@ import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { fetchRealEvents, RealEvent } from '../../lib/events-api-real';
+import { searchRealEventsWithGemini } from '../../lib/gemini-search-real';
 import { calculateDistance } from '../../lib/helpers';
 import { EventListSkeleton } from '../../components/LoadingSkeleton';
 import { LoadingProgress } from '../../components/LoadingProgress';
@@ -67,42 +68,91 @@ export default function FeedScreen() {
     })();
   }, []);
 
-  // Fetch ONLY REAL EVENTS from verified APIs
+  // Fetch REAL EVENTS - Gemini searches web, then try direct APIs
   const fetchEvents = async () => {
     if (!userLocation) return;
 
     try {
       setLoading(true);
       setLoadingProgress(0.1);
-      setLoadingStatus('🔍 Searching real event platforms...');
+      setLoadingStatus('🔍 Searching for real events...');
 
-      console.log(`\n📍 Fetching REAL events for ${selectedCity.name}...`);
+      console.log(`\n📍 Fetching events for ${selectedCity.name}...`);
 
-      // FETCH ONLY REAL EVENTS - No AI hallucinations
-      const result = await fetchRealEvents(
-        userLocation.latitude,
-        userLocation.longitude,
-        25,
-        selectedCategory !== 'all' ? selectedCategory : undefined
-      );
+      let allEvents: Event[] = [];
+      let sources: string[] = [];
+
+      // STRATEGY 1: Gemini Web Search (searches Instagram, Eventbrite, etc.)
+      if (process.env.EXPO_PUBLIC_GEMINI_API_KEY) {
+        setLoadingProgress(0.2);
+        setLoadingStatus('🤖 Gemini searching the web...');
+        
+        try {
+          const geminiResult = await searchRealEventsWithGemini(
+            selectedCity.name,
+            selectedCity.province,
+            {
+              category: selectedCategory !== 'all' ? selectedCategory : undefined,
+              when: 'upcoming this month and next month',
+              query: searchQuery,
+            },
+            (status) => {
+              setLoadingStatus(status);
+              console.log('Gemini:', status);
+            }
+          );
+
+          if (geminiResult.success && geminiResult.events.length > 0) {
+            allEvents.push(...(geminiResult.events as any));
+            sources.push(...geminiResult.sources);
+            console.log(`✅ Gemini: ${geminiResult.events.length} real events found via web search`);
+          }
+        } catch (geminiError) {
+          console.warn('⚠️ Gemini search failed:', geminiError);
+        }
+      }
+
+      // STRATEGY 2: Direct APIs (Ticketmaster, Eventbrite, SeatGeek)
+      setLoadingProgress(0.6);
+      setLoadingStatus('🎫 Checking Ticketmaster & more...');
+      
+      try {
+        const apiResult = await fetchRealEvents(
+          userLocation.latitude,
+          userLocation.longitude,
+          25,
+          selectedCategory !== 'all' ? selectedCategory : undefined
+        );
+
+        if (apiResult.success && apiResult.events.length > 0) {
+          allEvents.push(...apiResult.events);
+          sources.push(...apiResult.sources);
+          console.log(`✅ APIs: ${apiResult.events.length} events from ${apiResult.sources.join(', ')}`);
+        }
+      } catch (apiError) {
+        console.warn('⚠️ Direct APIs failed:', apiError);
+      }
 
       setLoadingProgress(0.9);
 
-      if (result.success && result.events.length > 0) {
-        setLoadingStatus(`✅ Found ${result.events.length} real events from ${result.sources.join(', ')}`);
+      // Remove duplicates (same title + same date)
+      const uniqueEvents = deduplicateEvents(allEvents);
+      
+      if (uniqueEvents.length > 0) {
+        setLoadingStatus(`✅ Found ${uniqueEvents.length} real events from ${sources.length} sources`);
         
-        console.log(`✅ SUCCESS: ${result.events.length} verified events loaded`);
-        console.log(`   Sources: ${result.sources.join(', ')}`);
+        console.log(`✅ TOTAL: ${uniqueEvents.length} verified events`);
+        console.log(`   Sources: ${sources.join(', ')}`);
         
         await new Promise(resolve => setTimeout(resolve, 500));
         
         setLoadingProgress(1);
-        cacheEvents(result.events);
-        setEvents(result.events);
-        setFilteredEvents(result.events);
+        cacheEvents(uniqueEvents);
+        setEvents(uniqueEvents);
+        setFilteredEvents(uniqueEvents);
       } else {
-        const message = result.sources.length === 0 
-          ? 'API keys not configured. Add Ticketmaster/Eventbrite keys to .env'
+        const message = sources.length === 0 
+          ? 'No API keys configured. Add Gemini or Ticketmaster key to .env'
           : `No events found in ${selectedCity.name}. Try a different city or category.`;
         
         console.warn(`⚠️ ${message}`);
@@ -112,9 +162,9 @@ export default function FeedScreen() {
         setFilteredEvents([]);
       }
     } catch (error: any) {
-      console.error('❌ Error fetching real events:', error);
+      console.error('❌ Error fetching events:', error);
       setLoadingStatus('❌ Failed to load events');
-      Alert.alert('Error', 'Failed to load real events. Please check API configuration.');
+      Alert.alert('Error', 'Failed to load events. Please try again.');
       setEvents([]);
       setFilteredEvents([]);
     } finally {
@@ -123,6 +173,17 @@ export default function FeedScreen() {
       setLoadingProgress(1);
       setLoadingStatus('');
     }
+  };
+
+  // Helper to remove duplicate events
+  const deduplicateEvents = (events: Event[]): Event[] => {
+    const seen = new Set<string>();
+    return events.filter(event => {
+      const key = `${event.title.toLowerCase()}_${event.start_time}_${event.venue.name}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   };
 
   useEffect(() => {
@@ -258,7 +319,7 @@ export default function FeedScreen() {
             <Text style={styles.locationText}>{selectedCity.name}, {selectedCity.province}</Text>
             <MaterialCommunityIcons name="chevron-down" size={16} color="#6366f1" />
           </TouchableOpacity>
-          <Text style={styles.headerSubtext}>From Ticketmaster, Eventbrite & more</Text>
+          <Text style={styles.headerSubtext}>AI-powered web search + verified APIs</Text>
         </View>
       </View>
 
