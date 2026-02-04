@@ -100,51 +100,27 @@ export default function FeedScreen() {
         cacheEvents(result.events);
         setEvents(result.events);
         setFilteredEvents(result.events);
-        setLoading(false);
-        setRefreshing(false);
-        return;
-      }
-
-      // Other cities - use traditional APIs
-      setLoadingStatus('📡 Fetching from event APIs...');
-      let result;
-      if (selectedCategory === 'all') {
-        result = await getEventsNearLocation(
-          userLocation.latitude,
-          userLocation.longitude,
-          25
-        );
       } else {
-        result = await getEventsByCategory(
-          selectedCategory,
-          1,
-          userLocation
-        );
-      }
-
-      clearInterval(progressInterval);
-      setLoadingProgress(1);
-
-      if (result.success && result.events) {
-        setLoadingStatus(`✅ Found ${result.events.length} events!`);
-        await new Promise(resolve => setTimeout(resolve, 500));
-        cacheEvents(result.events);
-        setEvents(result.events);
-        setFilteredEvents(result.events);
-      } else {
-        Alert.alert('No Events Found', 'Try a different city or category.');
+        const message = result.sources.length === 0 
+          ? 'API keys not configured. Add Ticketmaster/Eventbrite keys to .env'
+          : `No events found in ${selectedCity.name}. Try a different city or category.`;
+        
+        console.warn(`⚠️ ${message}`);
+        setLoadingStatus('⚠️ No events found');
+        Alert.alert('No Events', message);
         setEvents([]);
         setFilteredEvents([]);
       }
     } catch (error: any) {
-      console.error('❌ Error fetching events:', error);
-      Alert.alert('Error', 'Failed to load events. Please try again.');
+      console.error('❌ Error fetching real events:', error);
+      setLoadingStatus('❌ Failed to load events');
+      Alert.alert('Error', 'Failed to load real events. Please check API configuration.');
       setEvents([]);
       setFilteredEvents([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
-      setLoadingProgress(0);
+      setLoadingProgress(1);
       setLoadingStatus('');
     }
   };
