@@ -11,7 +11,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { formatEventDate } from '../../lib/helpers';
-import { generateTorontoEvents } from '../../lib/toronto-events';
+import { getCachedEvent } from '../../lib/event-store';
 
 // Conditionally import MapView only on native platforms
 let MapView: any = null;
@@ -60,10 +60,8 @@ export default function EventDetailScreen() {
 
   const fetchEvent = async () => {
     try {
-      // For now, get from Toronto events generator
-      // In production, this would fetch from Supabase or API
-      const allEvents = generateTorontoEvents(50);
-      const foundEvent = allEvents.find((e) => e.id === id);
+      // Get event from cache
+      const foundEvent = getCachedEvent(id as string);
 
       if (!foundEvent) {
         setError('Event not found');

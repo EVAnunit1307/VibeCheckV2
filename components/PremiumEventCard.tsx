@@ -130,10 +130,10 @@ export const PremiumEventCard: React.FC<PremiumEventCardProps> = ({
 const styles = StyleSheet.create({
   card: {
     width: CARD_WIDTH,
-    height: 320,
+    height: 200,
     borderRadius: theme.borderRadius.lg,
     marginHorizontal: 16,
-    marginBottom: 20,
+    marginBottom: 12,
     overflow: 'hidden',
     ...theme.shadows.lg,
   },
@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
   gradient: {
     flex: 1,
     justifyContent: 'space-between',
-    padding: 16,
+    padding: 12,
   },
   topBadges: {
     flexDirection: 'row',
@@ -155,35 +155,35 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   vibeBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: theme.borderRadius.full,
     ...theme.shadows.md,
   },
   vibeText: {
     color: '#FFF',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '600',
   },
   ageBadge: {
     backgroundColor: theme.colors.danger,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: theme.borderRadius.full,
   },
   ageText: {
     color: '#FFF',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '700',
   },
   content: {
-    gap: 8,
+    gap: 4,
   },
   title: {
-    fontSize: theme.typography.h3,
+    fontSize: 16,
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.text,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   infoRow: {
     flexDirection: 'row',
@@ -191,17 +191,17 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   venue: {
-    fontSize: theme.typography.bodySmall,
+    fontSize: 12,
     color: theme.colors.text,
     fontWeight: theme.typography.weights.medium,
     flex: 1,
   },
   distance: {
-    fontSize: theme.typography.bodySmall,
+    fontSize: 11,
     color: theme.colors.textSecondary,
   },
   dateTime: {
-    fontSize: theme.typography.bodySmall,
+    fontSize: 12,
     color: theme.colors.text,
     fontWeight: theme.typography.weights.medium,
   },
@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 4,
   },
   leftInfo: {
     flex: 1,

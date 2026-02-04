@@ -17,6 +17,7 @@ import { PremiumEventCard } from '../../components/PremiumEventCard';
 import { MAJOR_CITIES, City, getDefaultCity } from '../../lib/cities';
 import { searchEventsWithGemini } from '../../lib/gemini-events';
 import { estimateRideCost } from '../../lib/ride-estimates';
+import { cacheEvents } from '../../lib/event-store';
 
 const CATEGORIES = [
   { id: 'all', name: '🎭 All', icon: 'view-grid' },
