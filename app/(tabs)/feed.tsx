@@ -123,6 +123,7 @@ export default function FeedScreen() {
           await new Promise(resolve => setTimeout(resolve, 800));
           
           setLoadingProgress(1);
+          cacheEvents(result.events);
           setEvents(result.events as any);
           setFilteredEvents(result.events as any);
           setLoading(false);
@@ -144,6 +145,7 @@ export default function FeedScreen() {
         setLoadingProgress(1);
         setLoadingStatus('✅ Found 50 Toronto events!');
         await new Promise(resolve => setTimeout(resolve, 500));
+        cacheEvents(torontoEvents);
         setEvents(torontoEvents);
         setFilteredEvents(torontoEvents);
         setLoading(false);
@@ -174,6 +176,7 @@ export default function FeedScreen() {
       if (result.success && result.events) {
         setLoadingStatus(`✅ Found ${result.events.length} events!`);
         await new Promise(resolve => setTimeout(resolve, 500));
+        cacheEvents(result.events);
         setEvents(result.events);
         setFilteredEvents(result.events);
       } else {
