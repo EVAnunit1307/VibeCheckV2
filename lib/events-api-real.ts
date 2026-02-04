@@ -284,6 +284,10 @@ export async function fetchRealEvents(
   category?: string
 ): Promise<{ success: boolean; events: RealEvent[]; sources: string[] }> {
   console.log(`\n🔍 FETCHING REAL EVENTS for (${latitude}, ${longitude}) within ${radiusMiles}mi`);
+  console.log(`📍 Category:`, category || 'all');
+  console.log(`🔑 Ticketmaster Key:`, TICKETMASTER_KEY ? 'Configured ✓' : 'MISSING ✗');
+  console.log(`🔑 Eventbrite Key:`, EVENTBRITE_KEY ? 'Configured ✓' : 'MISSING ✗');
+  console.log(`🔑 SeatGeek Key:`, SEATGEEK_CLIENT_ID ? 'Configured ✓' : 'MISSING ✗');
   
   const sources: string[] = [];
   let allEvents: RealEvent[] = [];
@@ -320,6 +324,13 @@ export async function fetchRealEvents(
   );
 
   console.log(`\n✅ TOTAL REAL EVENTS: ${uniqueEvents.length} from ${sources.join(', ')}`);
+  
+  if (uniqueEvents.length === 0) {
+    console.warn('⚠️ NO EVENTS FOUND - Check:');
+    console.warn('   1. API keys are valid');
+    console.warn('   2. Location has events (try NYC or LA)');
+    console.warn('   3. Check browser console for API errors');
+  }
 
   return {
     success: uniqueEvents.length > 0,
